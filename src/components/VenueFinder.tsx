@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+// Using direct script tag injection since Loader class was removed in newer versions
 import { useFestivalStore } from '@/store/festival-store';
 
 // ---------------------------------------------------------------------------
@@ -120,19 +120,33 @@ export default function VenueFinder() {
 
     let cancelled = false;
 
-    const loader = new Loader({
-      apiKey,
-      version: 'weekly',
-      libraries: ['marker'],
-    });
+    // Load Google Maps via script tag
+    const loadMaps = async () => {
+      if (!(window as any).google?.maps) {
+        await new Promise<void>((resolve, reject) => {
+          if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+            const check = setInterval(() => {
+              if ((window as any).google?.maps) { clearInterval(check); resolve(); }
+            }, 100);
+            setTimeout(() => { clearInterval(check); reject(new Error('timeout')); }, 10000);
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&v=weekly`;
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load Google Maps'));
+          document.head.appendChild(script);
+        });
+      }
+      return (window as any).google.maps;
+    };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (loader as any)
-      .importLibrary('maps')
-      .then(async ({ Map }: { Map: typeof google.maps.Map }) => {
+    loadMaps()
+      .then(async (maps: any) => {
         if (cancelled || !mapContainerRef.current) return;
 
-        const map = new Map(mapContainerRef.current, {
+        const map = new maps.Map(mapContainerRef.current, {
           center: { lat: 36.7783, lng: -119.4179 },
           zoom: 5,
           mapId: 'FESTIVAL_VENUE_MAP',
@@ -172,8 +186,7 @@ export default function VenueFinder() {
         mapRef.current = map;
 
         // Import the marker library
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { AdvancedMarkerElement } = await (loader as any).importLibrary('marker') as { AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement };
+        const AdvancedMarkerElement = (maps.marker?.AdvancedMarkerElement) ?? (window as any).google.maps.marker?.AdvancedMarkerElement;
 
         // Create markers for each venue
         VENUES.forEach((venue) => {
@@ -201,19 +214,31 @@ export default function VenueFinder() {
             </div>
           `;
 
-          const marker = new AdvancedMarkerElement({
-            position: { lat: venue.lat, lng: venue.lng },
-            map,
-            content: pinEl,
-            title: venue.name,
-          });
-
-          marker.addListener('gmp-click', () => {
-            setSelectedPreview(venue);
-            map.panTo({ lat: venue.lat, lng: venue.lng });
-          });
-
-          markersRef.current.push(marker);
+          if (AdvancedMarkerElement) {
+            const marker = new AdvancedMarkerElement({
+              position: { lat: venue.lat, lng: venue.lng },
+              map,
+              content: pinEl,
+              title: venue.name,
+            });
+            marker.addListener('gmp-click', () => {
+              setSelectedPreview(venue);
+              map.panTo({ lat: venue.lat, lng: venue.lng });
+            });
+            markersRef.current.push(marker);
+          } else {
+            // Fallback to standard Marker
+            const marker = new maps.Marker({
+              position: { lat: venue.lat, lng: venue.lng },
+              map,
+              title: venue.name,
+            });
+            marker.addListener('click', () => {
+              setSelectedPreview(venue);
+              map.panTo({ lat: venue.lat, lng: venue.lng });
+            });
+            markersRef.current.push(marker);
+          }
         });
 
         setMapLoaded(true);
