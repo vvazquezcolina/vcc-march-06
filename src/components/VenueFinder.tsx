@@ -248,11 +248,11 @@ export default function VenueFinder() {
       }}
       className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border ${
         isActive
-          ? 'bg-purple-900/60 border-purple-500 shadow-lg shadow-purple-500/20'
-          : 'bg-gray-900/40 border-gray-700/50 hover:bg-gray-800/60 hover:border-purple-600/40'
+          ? 'bg-white/[0.08] border-white/20 shadow-lg shadow-white/[0.06]'
+          : 'bg-gray-900/40 border-gray-700/50 hover:bg-gray-800/60 hover:border-white/[0.08]'
       } ${
         store.selectedVenue?.name === venue.name
-          ? 'ring-2 ring-fuchsia-400'
+          ? 'ring-2 ring-white/30'
           : ''
       }`}
     >
@@ -271,11 +271,11 @@ export default function VenueFinder() {
       ref={infoOverlayRef}
       className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20
                  w-80 rounded-2xl overflow-hidden
-                 bg-gray-900/95 backdrop-blur-xl border border-purple-500/40
-                 shadow-2xl shadow-purple-900/40"
+                 bg-gray-900/95 backdrop-blur-xl border border-white/[0.1]
+                 shadow-2xl shadow-white/[0.04]"
     >
       {/* Gradient accent bar */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500" />
+      <div className="h-1.5 w-full bg-gradient-to-r from-white/10 via-white/20 to-white/10" />
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
@@ -283,7 +283,7 @@ export default function VenueFinder() {
             <h3 className="text-lg font-bold text-white truncate">
               {venue.name}
             </h3>
-            <p className="text-sm text-purple-300 mt-1">{venue.description}</p>
+            <p className="text-sm text-white/40 mt-1">{venue.description}</p>
             <p className="text-xs text-gray-500 mt-1.5">
               {venue.lat.toFixed(4)}, {venue.lng.toFixed(4)}
             </p>
@@ -313,10 +313,10 @@ export default function VenueFinder() {
         <button
           onClick={() => handleSelectVenue(venue)}
           className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm
-                     bg-gradient-to-r from-fuchsia-600 to-purple-600
-                     hover:from-fuchsia-500 hover:to-purple-500
+                     bg-gradient-to-r from-zinc-700 to-zinc-600
+                     hover:from-zinc-600 hover:to-zinc-500
                      text-white transition-all duration-200
-                     shadow-lg shadow-fuchsia-600/30 hover:shadow-fuchsia-500/40
+                     shadow-lg shadow-zinc-700/20 hover:shadow-zinc-600/20
                      active:scale-[0.98]"
         >
           Select This Venue
@@ -333,7 +333,7 @@ export default function VenueFinder() {
       <div className="w-full h-full min-h-[600px] bg-gray-950 text-white flex flex-col">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-800">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-white/80">
             Choose Your Festival Venue
           </h2>
           <p className="text-sm text-gray-500 mt-1">
@@ -358,13 +358,13 @@ export default function VenueFinder() {
                   className={`relative rounded-2xl overflow-hidden border transition-all duration-200
                     ${
                       isSelected
-                        ? 'border-fuchsia-500 ring-2 ring-fuchsia-400/50 shadow-xl shadow-fuchsia-600/20'
-                        : 'border-gray-700/60 hover:border-purple-500/60 hover:shadow-lg hover:shadow-purple-900/20'
+                        ? 'border-white/20 ring-2 ring-white/10 shadow-xl shadow-white/5'
+                        : 'border-gray-700/60 hover:border-zinc-500/60 hover:shadow-lg hover:shadow-white/[0.04]'
                     }
                     bg-gray-900/80 backdrop-blur`}
                 >
                   {/* Decorative gradient header */}
-                  <div className="h-24 bg-gradient-to-br from-purple-800/60 via-fuchsia-900/40 to-indigo-900/60 flex items-center justify-center">
+                  <div className="h-24 bg-gradient-to-br from-zinc-800/40 via-zinc-900/40 to-zinc-800/40 flex items-center justify-center">
                     <span className="text-4xl opacity-70">&#127926;</span>
                   </div>
 
@@ -372,7 +372,7 @@ export default function VenueFinder() {
                     <h3 className="font-bold text-white text-base">
                       {venue.name}
                     </h3>
-                    <p className="text-sm text-purple-300 mt-1">
+                    <p className="text-sm text-white/40 mt-1">
                       {venue.description}
                     </p>
                     <p className="text-xs text-gray-600 mt-1.5">
@@ -382,10 +382,10 @@ export default function VenueFinder() {
                     <button
                       onClick={() => handleSelectVenue(venue)}
                       className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm
-                                 bg-gradient-to-r from-fuchsia-600 to-purple-600
-                                 hover:from-fuchsia-500 hover:to-purple-500
+                                 bg-gradient-to-r from-zinc-700 to-zinc-600
+                                 hover:from-zinc-600 hover:to-zinc-500
                                  text-white transition-all duration-200
-                                 shadow-lg shadow-fuchsia-600/30 hover:shadow-fuchsia-500/40
+                                 shadow-lg shadow-zinc-700/20 hover:shadow-zinc-600/20
                                  active:scale-[0.98]"
                     >
                       {isSelected ? 'Selected' : 'Select This Venue'}
@@ -393,7 +393,7 @@ export default function VenueFinder() {
                   </div>
 
                   {isSelected && (
-                    <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-fuchsia-500 flex items-center justify-center shadow-lg">
+                    <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-zinc-500 flex items-center justify-center shadow-lg">
                       <svg
                         className="w-4 h-4 text-white"
                         fill="none"
@@ -416,35 +416,35 @@ export default function VenueFinder() {
 
           {/* Editable venue details (fallback layout) */}
           {store.selectedVenue && (
-            <div className="mt-6 rounded-2xl border border-purple-500/30 bg-gray-900/80 p-5 max-w-xl mx-auto">
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-purple-400">
+            <div className="mt-6 rounded-2xl border border-white/[0.08] bg-gray-900/80 p-5 max-w-xl mx-auto">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-white/40">
                 Edit Venue Details
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                  <label className="mb-1 block text-xs font-semibold text-white/30">
                     Venue Name
                   </label>
                   <input
                     type="text"
                     value={store.selectedVenue.name}
                     onChange={(e) => store.updateVenueName(e.target.value)}
-                    className="w-full rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-white/20 focus:bg-white/10"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                  <label className="mb-1 block text-xs font-semibold text-white/30">
                     Description
                   </label>
                   <textarea
                     rows={2}
                     value={store.selectedVenue.description}
                     onChange={(e) => store.updateVenueDescription(e.target.value)}
-                    className="w-full resize-none rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                    className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-white/20 focus:bg-white/10"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                  <label className="mb-1 block text-xs font-semibold text-white/30">
                     Venue Notes
                   </label>
                   <textarea
@@ -452,13 +452,13 @@ export default function VenueFinder() {
                     placeholder="Notes about this venue..."
                     value={store.customNotes.venue}
                     onChange={(e) => store.setCustomNote('venue', e.target.value)}
-                    className="w-full resize-none rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-1.5 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-pink-500/60"
+                    className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-white/20"
                   />
                 </div>
               </div>
               <button
                 onClick={() => store.setActiveTab(3)}
-                className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white transition-all duration-200 shadow-lg shadow-fuchsia-600/30 hover:shadow-fuchsia-500/40 active:scale-[0.98]"
+                className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-white transition-all duration-200 shadow-lg shadow-zinc-700/20 hover:shadow-zinc-600/20 active:scale-[0.98]"
               >
                 Confirm Venue &amp; Continue
               </button>
@@ -476,7 +476,7 @@ export default function VenueFinder() {
     <div className="w-full h-full min-h-[600px] bg-gray-950 text-white flex flex-col">
       {/* Header */}
       <div className="px-6 py-5 border-b border-gray-800 shrink-0">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-white/80">
           Choose Your Festival Venue
         </h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -506,8 +506,8 @@ export default function VenueFinder() {
 
           {/* Currently selected venue indicator */}
           {store.selectedVenue && (
-            <div className="px-4 py-3 border-t border-gray-800 bg-purple-950/30">
-              <p className="text-[10px] uppercase tracking-wider text-purple-400 font-semibold">
+            <div className="px-4 py-3 border-t border-gray-800 bg-zinc-900/30">
+              <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
                 Current venue
               </p>
               <p className="text-sm text-white font-medium mt-0.5 truncate">
@@ -525,7 +525,7 @@ export default function VenueFinder() {
             {!mapLoaded && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-950">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                  <div className="w-10 h-10 border-4 border-white/[0.08] border-t-white/40 rounded-full animate-spin" />
                   <p className="text-sm text-gray-500">Loading map...</p>
                 </div>
               </div>
@@ -543,29 +543,29 @@ export default function VenueFinder() {
             <div className="shrink-0 border-t border-gray-800 bg-gray-950/90 px-6 py-4">
               <div className="flex flex-wrap items-end gap-4">
                 <div className="flex-1 min-w-[180px]">
-                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                  <label className="mb-1 block text-xs font-semibold text-white/30">
                     Venue Name
                   </label>
                   <input
                     type="text"
                     value={store.selectedVenue.name}
                     onChange={(e) => store.updateVenueName(e.target.value)}
-                    className="w-full rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-white/20 focus:bg-white/10"
                   />
                 </div>
                 <div className="flex-1 min-w-[180px]">
-                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                  <label className="mb-1 block text-xs font-semibold text-white/30">
                     Description
                   </label>
                   <input
                     type="text"
                     value={store.selectedVenue.description}
                     onChange={(e) => store.updateVenueDescription(e.target.value)}
-                    className="w-full rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-white/20 focus:bg-white/10"
                   />
                 </div>
                 <div className="flex-1 min-w-[180px]">
-                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                  <label className="mb-1 block text-xs font-semibold text-white/30">
                     Venue Notes
                   </label>
                   <textarea
@@ -573,12 +573,12 @@ export default function VenueFinder() {
                     placeholder="Notes about this venue..."
                     value={store.customNotes.venue}
                     onChange={(e) => store.setCustomNote('venue', e.target.value)}
-                    className="w-full resize-none rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-1.5 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-pink-500/60"
+                    className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-white/20"
                   />
                 </div>
                 <button
                   onClick={() => store.setActiveTab(3)}
-                  className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-all shadow-lg shadow-fuchsia-600/30 active:scale-[0.98]"
+                  className="shrink-0 rounded-xl bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 px-5 py-2 text-sm font-semibold text-white transition-all shadow-lg shadow-zinc-700/20 active:scale-[0.98]"
                 >
                   Confirm &amp; Continue
                 </button>

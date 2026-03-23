@@ -90,7 +90,7 @@ export default function ShareCard({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Gradient border effect */}
-        <div className="bg-gradient-to-br from-purple-600 via-pink-500 to-fuchsia-600 p-[2px] rounded-2xl">
+        <div className="bg-gradient-to-br from-zinc-600 via-zinc-500 to-zinc-600 p-[2px] rounded-2xl">
           <div className="bg-gray-950 rounded-2xl p-6">
             {/* Close button */}
             <button
@@ -116,7 +116,7 @@ export default function ShareCard({
 
             {/* Header */}
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-fuchsia-400 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-zinc-300 via-zinc-400 to-zinc-300 bg-clip-text text-transparent">
                 Share Your Festival
               </h2>
               <p className="text-sm text-white/50 mt-1">
@@ -125,14 +125,14 @@ export default function ShareCard({
             </div>
 
             {/* Festival summary card */}
-            <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 border border-white/10 rounded-xl p-5 mb-6">
+            <div className="bg-gradient-to-br from-zinc-800/40 to-zinc-700/40 border border-white/10 rounded-xl p-5 mb-6">
               <h3 className="text-xl font-extrabold text-white tracking-wide uppercase mb-3">
                 {festivalName}
               </h3>
 
               <div className="space-y-2">
                 <div>
-                  <span className="text-xs font-semibold text-purple-300 uppercase tracking-widest">
+                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
                     Headliners
                   </span>
                   <p className="text-white/90 font-medium">
@@ -141,7 +141,7 @@ export default function ShareCard({
                 </div>
 
                 <div>
-                  <span className="text-xs font-semibold text-pink-300 uppercase tracking-widest">
+                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
                     Venue
                   </span>
                   <p className="text-white/90 font-medium">{venueName}</p>
@@ -149,7 +149,7 @@ export default function ShareCard({
 
                 {vibe && (
                   <div>
-                    <span className="text-xs font-semibold text-fuchsia-300 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
                       Vibe
                     </span>
                     <p className="text-white/70 italic">{vibe}</p>
@@ -163,7 +163,7 @@ export default function ShareCard({
               {/* Copy to Clipboard */}
               <button
                 onClick={handleCopy}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-800/40 active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-zinc-600 to-zinc-500 hover:from-zinc-500 hover:to-zinc-400 text-white shadow-lg shadow-zinc-900/30 hover:shadow-zinc-800/40 active:scale-[0.98]"
               >
                 {copied ? (
                   <>

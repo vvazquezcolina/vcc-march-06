@@ -581,12 +581,12 @@ export default function StageBuilder() {
   return (
     <div className="relative w-full h-full min-h-[550px] flex rounded-xl overflow-hidden">
       {/* ── Toolbar ── */}
-      <div className="w-52 shrink-0 bg-gradient-to-b from-[#12101f] to-[#0a0812] border-r border-purple-900/30 flex flex-col p-3 gap-1.5 overflow-y-auto z-10">
-        <h2 className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">Add Elements</h2>
+      <div className="w-52 shrink-0 bg-gradient-to-b from-[#12101f] to-[#0a0812] border-r border-white/[0.06] flex flex-col p-3 gap-1.5 overflow-y-auto z-10">
+        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">Add Elements</h2>
 
         {ELEMENT_TYPES.map(({ type, label, icon, desc }) => (
           <button key={type} onClick={() => addStageElement(type)}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-purple-500/15 border border-white/[0.06] hover:border-purple-500/30 transition-all text-left group cursor-pointer">
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.08] transition-all text-left group cursor-pointer">
             <span className="text-lg">{icon}</span>
             <div>
               <div className="text-sm font-medium text-gray-300 group-hover:text-white">{label}</div>
@@ -598,8 +598,8 @@ export default function StageBuilder() {
         <div className="border-t border-white/[0.06] my-2" />
 
         {selectedElement && (
-          <div className="rounded-lg bg-purple-500/10 border border-purple-500/20 p-3 mb-2">
-            <div className="text-[10px] text-purple-400 font-semibold uppercase tracking-widest">Selected</div>
+          <div className="rounded-lg bg-white/[0.06] border border-white/[0.06] p-3 mb-2">
+            <div className="text-[10px] text-white/40 font-semibold uppercase tracking-widest">Selected</div>
             <div className="text-sm text-white font-medium mt-1">
               {ELEMENT_TYPES.find((t) => t.type === selectedElement.type)?.label}
             </div>
@@ -615,7 +615,7 @@ export default function StageBuilder() {
         <div className="flex-1" />
 
         <div className="mb-2">
-          <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-purple-400">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-white/40">
             Stage Notes
           </label>
           <textarea
@@ -623,12 +623,12 @@ export default function StageBuilder() {
             placeholder="Notes for your stage design..."
             value={customNotes.stage}
             onChange={(e) => setCustomNote('stage', e.target.value)}
-            className="w-full resize-none rounded-lg border border-purple-500/30 bg-purple-900/20 px-2.5 py-1.5 text-xs text-white placeholder-white/25 outline-none transition-colors focus:border-pink-500/60"
+            className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white placeholder-white/25 outline-none transition-colors focus:border-white/30"
           />
         </div>
 
         <button onClick={() => { screenshotRef.current?.(); setActiveTab(2) }}
-          className="w-full px-3 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-semibold transition-all shadow-lg shadow-purple-900/40 cursor-pointer">
+          className="w-full px-3 py-2.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.12] text-white text-sm font-semibold transition-all shadow-lg shadow-white/[0.06] cursor-pointer">
           Capture Stage →
         </button>
       </div>

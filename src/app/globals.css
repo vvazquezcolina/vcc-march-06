@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --festival-purple: #7c3aed;
-  --festival-pink: #ec4899;
-  --festival-orange: #f97316;
+  --festival-purple: #a1a1aa;
+  --festival-pink: #d4d4d8;
+  --festival-orange: #e4e4e7;
 }
 
 body {
@@ -44,7 +44,7 @@ body {
 
 .festival-input:focus,
 .festival-textarea:focus {
-  border-color: rgba(168, 85, 247, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -60,8 +60,8 @@ body {
 }
 
 /* Legacy class compat */
-.glow-text { text-shadow: 0 0 20px rgba(124, 58, 237, 0.3); }
-.tab-active { box-shadow: 0 0 12px rgba(124, 58, 237, 0.25); }
+.glow-text { text-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+.tab-active { box-shadow: 0 0 12px rgba(255, 255, 255, 0.25); }
 .gradient-text {
   background: linear-gradient(90deg, var(--festival-purple), var(--festival-pink), var(--festival-orange));
   -webkit-background-clip: text;
@@ -74,5 +74,5 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .neon-border {
-  box-shadow: 0 0 5px rgba(124, 58, 237, 0.2), inset 0 0 5px rgba(124, 58, 237, 0.05);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.2), inset 0 0 5px rgba(255, 255, 255, 0.05);
 }

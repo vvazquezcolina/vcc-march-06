@@ -17,10 +17,10 @@ interface Particle {
 }
 
 const FESTIVAL_COLORS = [
-  "168, 85, 247",  // purple
-  "236, 72, 153",  // pink
-  "34, 211, 238",  // cyan
-  "250, 204, 21",  // gold
+  "255, 255, 255",  // white
+  "212, 212, 216",  // zinc-300
+  "161, 161, 170",  // zinc-400
+  "113, 113, 122",  // zinc-500
 ];
 
 const PARTICLE_COUNT_MIN = 40;

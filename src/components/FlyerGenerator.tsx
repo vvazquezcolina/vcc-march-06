@@ -141,7 +141,7 @@ export default function FlyerGenerator() {
               type="text"
               value={festName}
               onChange={(e) => setFestName(e.target.value)}
-              className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-purple-500/40 transition-colors"
+              className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-white/[0.1] transition-colors"
             />
             <button
               onClick={handleRegenName}
@@ -163,7 +163,7 @@ export default function FlyerGenerator() {
             placeholder="Add text to your poster..."
             value={customNotes.flyer}
             onChange={(e) => setCustomNote("flyer", e.target.value)}
-            className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-white/20 outline-none focus:border-purple-500/40 transition-colors"
+            className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-white/20 outline-none focus:border-white/[0.1] transition-colors"
           />
         </div>
 
@@ -197,7 +197,7 @@ export default function FlyerGenerator() {
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium hover:from-purple-500 hover:to-pink-500 transition-all disabled:opacity-40 cursor-pointer"
+            className="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-zinc-600 to-zinc-500 text-white text-sm font-medium hover:from-zinc-500 hover:to-zinc-400 transition-all disabled:opacity-40 cursor-pointer"
           >
             {generating ? "Generating..." : "✨ Regenerate with AI"}
           </button>

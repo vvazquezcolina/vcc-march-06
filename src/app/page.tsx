@@ -13,7 +13,7 @@ const StageBuilder = dynamic(() => import("@/components/StageBuilder"), {
   loading: () => (
     <div className="flex items-center justify-center h-[500px]">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-2 border-white/10 border-t-purple-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/10 border-t-zinc-500 rounded-full animate-spin" />
         <span className="text-sm text-white/30">Initializing 3D engine...</span>
       </div>
     </div>
@@ -55,7 +55,7 @@ export default function Home() {
         {/* ─── Top Bar ─── */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-black">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zinc-500 to-zinc-400 flex items-center justify-center text-sm font-black">
               M
             </div>
             <div>
@@ -77,7 +77,7 @@ export default function Home() {
                     d
                       ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]"
                       : i === activeTab
-                      ? "bg-purple-400 shadow-[0_0_6px_rgba(168,85,247,0.5)]"
+                      ? "bg-white/40 shadow-[0_0_6px_rgba(255,255,255,0.3)]"
                       : "bg-white/10"
                   }`}
                 />
@@ -113,7 +113,7 @@ export default function Home() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className={`text-[10px] font-mono ${isActive ? "text-purple-400" : "text-white/20"}`}>
+                      <span className={`text-[10px] font-mono ${isActive ? "text-white/40" : "text-white/20"}`}>
                         {step.shortLabel}
                       </span>
                       <span className={`ml-2 text-sm font-medium ${isActive ? "text-white" : "text-white/40"}`}>
@@ -128,7 +128,7 @@ export default function Home() {
                     {step.desc}
                   </p>
                   {isActive && (
-                    <div className="absolute bottom-0 left-4 right-4 h-px bg-gradient-to-r from-purple-500/50 via-pink-500/50 to-transparent" />
+                    <div className="absolute bottom-0 left-4 right-4 h-px bg-gradient-to-r from-white/20 via-white/15 to-transparent" />
                   )}
                 </button>
               );

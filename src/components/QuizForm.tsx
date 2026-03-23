@@ -122,7 +122,7 @@ export default function QuizForm() {
                     onChange={(e) =>
                       store.updateArtistName(key, idx, e.target.value)
                     }
-                    className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm text-white outline-none focus:border-purple-500/40 transition-colors"
+                    className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm text-white outline-none focus:border-white/[0.1] transition-colors"
                   />
                   <button
                     onClick={() => store.removeArtist(key, idx)}
@@ -151,7 +151,7 @@ export default function QuizForm() {
                     setNewArtist((p) => ({ ...p, [key]: "" }));
                   }
                 }}
-                className="flex-1 rounded-lg border border-dashed border-white/[0.08] bg-transparent px-3 py-1.5 text-xs text-white placeholder-white/15 outline-none focus:border-purple-500/30 transition-colors"
+                className="flex-1 rounded-lg border border-dashed border-white/[0.08] bg-transparent px-3 py-1.5 text-xs text-white placeholder-white/15 outline-none focus:border-white/[0.08] transition-colors"
               />
               <button
                 onClick={() => {
@@ -181,7 +181,7 @@ export default function QuizForm() {
             placeholder="E.g. I want a surprise guest, late-night DJ set..."
             value={store.customNotes.quiz}
             onChange={(e) => store.setCustomNote("quiz", e.target.value)}
-            className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-white/15 outline-none focus:border-purple-500/40 transition-colors"
+            className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-white/15 outline-none focus:border-white/[0.1] transition-colors"
           />
         </div>
 
@@ -205,7 +205,7 @@ export default function QuizForm() {
             <div
               className={`h-1 flex-1 rounded-full transition-all duration-300 ${
                 i < currentStep
-                  ? "bg-purple-500/60"
+                  ? "bg-zinc-500/60"
                   : i === currentStep
                   ? "bg-white/30"
                   : "bg-white/[0.06]"
@@ -243,7 +243,7 @@ export default function QuizForm() {
                   }
                   className={`w-full text-left px-4 py-3 rounded-lg border transition-all duration-150 cursor-pointer ${
                     isSelected
-                      ? "border-purple-500/40 bg-purple-500/10 text-white"
+                      ? "border-white/[0.1] bg-white/[0.04] text-white"
                       : "border-white/[0.06] bg-white/[0.02] text-white/50 hover:bg-white/[0.04] hover:text-white/70 hover:border-white/[0.1]"
                   }`}
                 >
@@ -252,7 +252,7 @@ export default function QuizForm() {
                     <div
                       className={`w-4 h-4 rounded-full border-2 transition-colors flex items-center justify-center ${
                         isSelected
-                          ? "border-purple-400 bg-purple-400"
+                          ? "border-zinc-400 bg-zinc-400"
                           : "border-white/20"
                       }`}
                     >
