@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface Artist {
-  name: string
-  genre: string
-  slot: string
-}
+interface Artist { name: string; genre: string; slot: string }
 
 interface RequestBody {
-  lineup: {
-    headliners: Artist[]
-    subHeadliners: Artist[]
-    openers: Artist[]
-  }
+  lineup: { headliners: Artist[]; subHeadliners: Artist[]; openers: Artist[] }
   venueName: string
   venueDescription: string
   vibe: string
@@ -22,218 +11,130 @@ interface RequestBody {
   customNote: string | null
 }
 
-// ---------------------------------------------------------------------------
-// Festival name generator – turns the vibe into a catchy fest name
-// ---------------------------------------------------------------------------
 const FESTIVAL_NAMES: Record<string, string[]> = {
-  'Desert Oasis': [
-    'MIRAGE FESTIVAL',
-    'SANDSTORM',
-    'OASIS NIGHTS',
-    'DUNE FEST',
-    'SOLAR FLARE',
-  ],
-  'Urban Jungle': [
-    'NEON DISTRICT',
-    'CONCRETE JUNGLE FEST',
-    'MIDNIGHT CITY',
-    'GRID FESTIVAL',
-    'ELECTRIC AVENUE',
-  ],
-  'Forest Wonderland': [
-    'ENCHANTED FEST',
-    'DEEP WOODS',
-    'FIREFLY FESTIVAL',
-    'EMERALD DREAM',
-    'CANOPY FEST',
-  ],
-  'Beach Paradise': [
-    'TIDAL FEST',
-    'CORAL REEF FESTIVAL',
-    'SUNSET SHORE',
-    'WAVE RIDER FEST',
-    'GOLDEN COAST FEST',
-  ],
+  'Desert Oasis': ['MIRAGE FESTIVAL', 'SANDSTORM', 'OASIS NIGHTS', 'DUNE FEST', 'SOLAR FLARE'],
+  'Urban Jungle': ['NEON DISTRICT', 'CONCRETE JUNGLE FEST', 'MIDNIGHT CITY', 'GRID FESTIVAL', 'ELECTRIC AVENUE'],
+  'Forest Wonderland': ['ENCHANTED FEST', 'DEEP WOODS', 'FIREFLY FESTIVAL', 'EMERALD DREAM', 'CANOPY FEST'],
+  'Beach Paradise': ['TIDAL FEST', 'CORAL REEF FESTIVAL', 'SUNSET SHORE', 'WAVE RIDER FEST', 'GOLDEN COAST FEST'],
 }
 
-function generateFestivalName(vibe: string): string {
-  const names = FESTIVAL_NAMES[vibe] ?? [
-    'MAINSTAGE FESTIVAL',
-    'SOUNDWAVE FESTIVAL',
-    'ELECTRIC HORIZON',
-  ]
-  return names[Math.floor(Math.random() * names.length)]
-}
-
-// ---------------------------------------------------------------------------
-// Tagline generator – produces a thematic tagline based on vibe
-// ---------------------------------------------------------------------------
 const TAGLINES: Record<string, string[]> = {
-  'Desert Oasis': [
-    'Where the bass meets the dunes',
-    'A sonic mirage under endless skies',
-    'Lose yourself in the heat of the beat',
-    'The desert pulses with sound',
-    'Rhythm rising from the sands',
-  ],
-  'Urban Jungle': [
-    'The city never sleeps, and neither will you',
-    'Concrete beats for restless streets',
-    'Where skyscrapers meet soundwaves',
-    'Neon lights, electric nights',
-    'The underground rises',
-  ],
-  'Forest Wonderland': [
-    'Let the forest move through you',
-    'Where every tree hums a melody',
-    'Deep roots, deeper bass',
-    'An enchanted escape into sound',
-    'Nature and rhythm intertwined',
-  ],
-  'Beach Paradise': [
-    'Ride the wave of pure sound',
-    'Salt, sand, and sonic bliss',
-    'Where the tide brings the beat',
-    'Sun-soaked frequencies all day long',
-    'The shoreline is your dance floor',
-  ],
+  'Desert Oasis': ['Where the bass meets the dunes', 'A sonic mirage under endless skies', 'Rhythm rising from the sands'],
+  'Urban Jungle': ['The city never sleeps', 'Concrete beats for restless streets', 'Neon lights, electric nights'],
+  'Forest Wonderland': ['Let the forest move through you', 'Deep roots, deeper bass', 'Nature and rhythm intertwined'],
+  'Beach Paradise': ['Ride the wave of pure sound', 'Salt, sand, and sonic bliss', 'The shoreline is your dance floor'],
 }
 
-function generateTagline(vibe: string): string {
-  const lines = TAGLINES[vibe] ?? [
-    'Music beyond boundaries',
-    'Feel the frequency',
-    'Sound without limits',
-  ]
-  return lines[Math.floor(Math.random() * lines.length)]
-}
-
-// ---------------------------------------------------------------------------
-// Vibe-specific image prompt descriptions
-// ---------------------------------------------------------------------------
 const VIBE_PROMPTS: Record<string, string> = {
   'Desert Oasis':
-    'vast desert landscape at golden hour, towering sand dunes, shimmering oasis with palm trees, ' +
-    'dramatic sunset sky in orange and purple, mystical mirage effects, ancient temple ruins in the distance, ' +
-    'floating geometric shapes, warm tones, cinematic lighting',
+    'Epic music festival poster set in a vast desert at golden hour. Towering sand dunes, shimmering oasis with palm trees, dramatic sunset sky in orange and purple. Festival stage silhouette in the distance with laser beams.',
   'Urban Jungle':
-    'futuristic cyberpunk cityscape at night, neon-lit skyscrapers, holographic billboards, ' +
-    'rain-slicked streets reflecting neon lights, electric blue and magenta color palette, ' +
-    'dense urban atmosphere, glowing graffiti, flying vehicles in the distance',
+    'Epic music festival poster set in a futuristic cyberpunk cityscape at night. Neon-lit skyscrapers, holographic billboards, rain-slicked streets reflecting neon lights. Festival stage with massive LED screens between buildings.',
   'Forest Wonderland':
-    'enchanted bioluminescent forest at twilight, giant ancient trees with glowing moss, ' +
-    'fireflies and floating light orbs, mystical fog, mushrooms emitting soft light, ' +
-    'lush green and deep purple color palette, ethereal fairy-tale atmosphere, moonlight filtering through the canopy',
+    'Epic music festival poster set in an enchanted bioluminescent forest at twilight. Giant ancient trees with glowing moss, fireflies and floating light orbs, mystical fog. Festival stage made of intertwined branches.',
   'Beach Paradise':
-    'tropical beach at sunset, crystal-clear turquoise water, palm trees silhouetted against a ' +
-    'vibrant gradient sky of pink orange and gold, bioluminescent waves washing ashore, ' +
-    'tiki torches, coral reef visible under water, warm dreamy atmosphere',
+    'Epic music festival poster set on a tropical beach at sunset. Crystal-clear turquoise water, palm trees silhouetted against vibrant gradient sky of pink orange and gold. Festival stage on the shoreline with fireworks.',
 }
 
-// ---------------------------------------------------------------------------
-// POST handler
-// ---------------------------------------------------------------------------
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)] }
+
 export async function POST(request: NextRequest) {
   try {
     const body: RequestBody = await request.json()
-    const { lineup, venueName, venueDescription, vibe, stageSnapshot, customNote } = body
+    const { lineup, venueName, venueDescription, vibe, customNote } = body
 
-    // Validate required fields
-    if (!lineup || !lineup.headliners || !lineup.subHeadliners || !lineup.openers) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid lineup data' },
-        { status: 400 },
-      )
+    if (!lineup?.headliners || !lineup?.subHeadliners || !lineup?.openers) {
+      return NextResponse.json({ success: false, error: 'Missing lineup data' }, { status: 400 })
     }
 
-    if (!venueName) {
-      return NextResponse.json(
-        { success: false, error: 'Missing venue name' },
-        { status: 400 },
-      )
-    }
+    const festivalName = pick(FESTIVAL_NAMES[vibe] ?? ['MAINSTAGE FESTIVAL', 'SOUNDWAVE FESTIVAL'])
+    const tagline = pick(TAGLINES[vibe] ?? ['Feel the frequency'])
 
-    const festivalName = generateFestivalName(vibe)
-    const tagline = generateTagline(vibe)
-
-    // Build posterData once so it is always returned regardless of AI outcome
     const posterData = {
       headliners: lineup.headliners.map((a) => a.name),
       subHeadliners: lineup.subHeadliners.map((a) => a.name),
       openers: lineup.openers.map((a) => a.name),
-      venue: venueName,
+      venue: venueName ?? 'TBD',
       venueDescription: venueDescription ?? '',
       vibe,
       date: 'SUMMER 2026',
       customNote: customNote ?? null,
     }
 
-    // -----------------------------------------------------------------
-    // Attempt AI image generation via Nano Banana (Replicate) if key
-    // is available. Otherwise fall back to structured poster data that
-    // the client renders on a <canvas>.
-    // -----------------------------------------------------------------
+    // ── Attempt AI image generation via Google Gemini Imagen ──
     let aiImageUrl: string | null = null
-    const apiKey = process.env.NANO_BANANA_API_KEY
+    const geminiKey = process.env.NANO_BANANA_API_KEY
 
-    if (apiKey) {
+    if (geminiKey) {
       try {
         const headlinerNames = lineup.headliners.map((a) => a.name).join(', ')
-        const vibeDescription = VIBE_PROMPTS[vibe] ?? 'colorful abstract festival atmosphere, dramatic lighting'
+        const vibeDesc = VIBE_PROMPTS[vibe] ?? 'Colorful abstract festival atmosphere with dramatic lighting and crowd silhouettes.'
 
         const prompt = [
-          `Epic music festival poster art for "${festivalName}".`,
-          `Scene: ${vibeDescription}.`,
+          `${vibeDesc}`,
+          `Festival name: "${festivalName}".`,
           `Headliners: ${headlinerNames}.`,
           `Venue: ${venueName}.`,
-          'Style: psychedelic concert poster art, bold typography, vivid neon colors,',
-          'dark background, dramatic lighting, high detail, 4k, ultra-wide composition,',
-          'professional graphic design, crowd silhouettes in the foreground.',
+          'Style: psychedelic concert poster art, bold typography, vivid neon colors, dark background, dramatic lighting, high detail, professional graphic design.',
         ].join(' ')
 
-        const replicateRes = await fetch(
-          'https://api.replicate.com/v1/predictions',
+        // Use Gemini's generateContent with Imagen model
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              version: 'nanobanano/nanobanano-v2:latest',
-              input: {
-                prompt,
-                width: 800,
-                height: 1200,
-                num_outputs: 1,
+              contents: [{
+                parts: [{ text: `Generate a festival poster image: ${prompt}` }],
+              }],
+              generationConfig: {
+                responseModalities: ['TEXT'],
               },
             }),
           },
         )
 
-        if (replicateRes.ok) {
-          const prediction = await replicateRes.json()
-
-          // Replicate returns immediately with a prediction id; poll
-          // briefly for the result (max ~30 s).
-          const getUrl = prediction.urls?.get ?? prediction.url
-          if (getUrl) {
-            for (let i = 0; i < 15; i++) {
-              await new Promise((r) => setTimeout(r, 2000))
-              const poll = await fetch(getUrl, {
-                headers: { Authorization: `Bearer ${apiKey}` },
-              })
-              const data = await poll.json()
-              if (data.status === 'succeeded' && data.output) {
-                aiImageUrl = Array.isArray(data.output) ? data.output[0] : data.output
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json()
+          // Extract any image data from the response
+          const candidates = geminiData.candidates ?? []
+          for (const candidate of candidates) {
+            const parts = candidate.content?.parts ?? []
+            for (const part of parts) {
+              if (part.inlineData?.mimeType?.startsWith('image/')) {
+                aiImageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
                 break
               }
-              if (data.status === 'failed') break
+            }
+            if (aiImageUrl) break
+          }
+
+          // If no image but we got text, try Imagen endpoint
+          if (!aiImageUrl) {
+            const imagenRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  instances: [{ prompt }],
+                  parameters: { sampleCount: 1, aspectRatio: '2:3' },
+                }),
+              },
+            )
+
+            if (imagenRes.ok) {
+              const imagenData = await imagenRes.json()
+              const predictions = imagenData.predictions ?? []
+              if (predictions[0]?.bytesBase64Encoded) {
+                aiImageUrl = `data:image/png;base64,${predictions[0].bytesBase64Encoded}`
+              }
             }
           }
         }
       } catch {
-        // AI generation failed – aiImageUrl stays null, posterData still returned
+        // AI generation failed silently — canvas poster is the fallback
       }
     }
 
@@ -246,9 +147,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('[generate-flyer] Error:', err)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }

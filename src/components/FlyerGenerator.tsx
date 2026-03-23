@@ -19,6 +19,7 @@ export default function FlyerGenerator() {
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [festName, setFestName] = useState("");
+  const [aiImage, setAiImage] = useState<string | null>(null);
 
   const vibe = quizAnswers?.vibe ?? "Urban Jungle";
 
@@ -77,8 +78,9 @@ export default function FlyerGenerator() {
         }),
       });
       const data = await res.json();
-      if (data.success && data.festivalName) {
-        setFestName(data.festivalName);
+      if (data.success) {
+        if (data.festivalName) setFestName(data.festivalName);
+        if (data.aiImageUrl) setAiImage(data.aiImageUrl);
       }
     } catch {
       // Ignore - canvas poster is the fallback
@@ -226,14 +228,25 @@ export default function FlyerGenerator() {
       </div>
 
       {/* Right: Poster preview */}
-      <div className="flex-1 flex items-start justify-center">
+      <div className="flex-1 flex flex-col items-center gap-4">
         <div className="rounded-xl overflow-hidden border border-white/[0.08] shadow-2xl shadow-black/50 bg-black">
           <canvas
             ref={canvasRef}
             className="max-w-full h-auto"
-            style={{ maxHeight: "75vh" }}
+            style={{ maxHeight: "70vh" }}
           />
         </div>
+
+        {/* AI-generated image */}
+        {aiImage && (
+          <div className="w-full max-w-md">
+            <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">AI-Generated Art (Nano Banana / Gemini)</p>
+            <div className="rounded-xl overflow-hidden border border-white/[0.08] shadow-xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={aiImage} alt="AI-generated festival art" className="w-full h-auto" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
