@@ -134,6 +134,7 @@ const initialState: FestivalState = {
   stageSnapshot: null,
   generatedFlyerUrl: null,
   activeTab: 0,
+  customNotes: { quiz: '', stage: '', venue: '', flyer: '' },
 };
 
 // ---------------------------------------------------------------------------
@@ -150,6 +151,12 @@ interface FestivalActions {
   setFlyerUrl: (url: string) => void;
   setActiveTab: (tab: number) => void;
   resetAll: () => void;
+  setCustomNote: (tab: 'quiz' | 'stage' | 'venue' | 'flyer', note: string) => void;
+  updateArtistName: (slot: 'headliners' | 'subHeadliners' | 'openers', index: number, name: string) => void;
+  removeArtist: (slot: 'headliners' | 'subHeadliners' | 'openers', index: number) => void;
+  addArtist: (slot: 'headliners' | 'subHeadliners' | 'openers', name: string, genre: string) => void;
+  updateVenueName: (name: string) => void;
+  updateVenueDescription: (desc: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +247,57 @@ export const useFestivalStore = create<FestivalState & FestivalActions>()(
 
     // -- Navigation --
     setActiveTab: (tab) => set({ activeTab: tab }),
+
+    // -- Custom notes --
+    setCustomNote: (tab, note) =>
+      set((state) => ({
+        customNotes: { ...state.customNotes, [tab]: note },
+      })),
+
+    // -- Lineup editing --
+    updateArtistName: (slot, index, name) =>
+      set((state) => {
+        if (!state.lineup) return {};
+        const updated = [...state.lineup[slot]];
+        if (updated[index]) {
+          updated[index] = { ...updated[index], name };
+        }
+        return { lineup: { ...state.lineup, [slot]: updated } };
+      }),
+
+    removeArtist: (slot, index) =>
+      set((state) => {
+        if (!state.lineup) return {};
+        const updated = [...state.lineup[slot]];
+        updated.splice(index, 1);
+        return { lineup: { ...state.lineup, [slot]: updated } };
+      }),
+
+    addArtist: (slot, name, genre) =>
+      set((state) => {
+        if (!state.lineup) return {};
+        const slotType: Record<string, 'headliner' | 'sub-headliner' | 'opener'> = {
+          headliners: 'headliner',
+          subHeadliners: 'sub-headliner',
+          openers: 'opener',
+        };
+        const newArtist: Artist = { name, genre, slot: slotType[slot] };
+        const updated = [...state.lineup[slot], newArtist];
+        return { lineup: { ...state.lineup, [slot]: updated } };
+      }),
+
+    // -- Venue editing --
+    updateVenueName: (name) =>
+      set((state) => {
+        if (!state.selectedVenue) return {};
+        return { selectedVenue: { ...state.selectedVenue, name } };
+      }),
+
+    updateVenueDescription: (desc) =>
+      set((state) => {
+        if (!state.selectedVenue) return {};
+        return { selectedVenue: { ...state.selectedVenue, description: desc } };
+      }),
 
     // -- Reset --
     resetAll: () => set({ ...initialState }),

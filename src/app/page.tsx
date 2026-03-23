@@ -1,27 +1,30 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import QuizForm from "@/components/QuizForm";
 import VenueFinder from "@/components/VenueFinder";
 import FlyerGenerator from "@/components/FlyerGenerator";
+import AnimatedBackground from "@/components/AnimatedBackground";
 import { useFestivalStore } from "@/store/festival-store";
 
 const StageBuilder = dynamic(() => import("@/components/StageBuilder"), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-purple-400 animate-pulse text-lg">
-        Loading Stage Builder...
+    <div className="flex items-center justify-center h-[500px]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-white/10 border-t-purple-500 rounded-full animate-spin" />
+        <span className="text-sm text-white/30">Initializing 3D engine...</span>
       </div>
     </div>
   ),
 });
 
-const tabs = [
-  { label: "\uD83C\uDFB5 Lineup Quiz", id: 0 },
-  { label: "\uD83C\uDFB8 Stage Builder", id: 1 },
-  { label: "\uD83D\uDCCD Find Venue", id: 2 },
-  { label: "\uD83C\uDFA8 Generate Flyer", id: 3 },
+const STEPS = [
+  { id: 0, label: "Lineup", shortLabel: "01", desc: "Build your lineup" },
+  { id: 1, label: "Stage", shortLabel: "02", desc: "Design the mainstage" },
+  { id: 2, label: "Venue", shortLabel: "03", desc: "Pick a location" },
+  { id: 3, label: "Poster", shortLabel: "04", desc: "Generate your flyer" },
 ];
 
 export default function Home() {
@@ -31,97 +34,130 @@ export default function Home() {
   const stageElements = useFestivalStore((s) => s.stageElements);
   const selectedVenue = useFestivalStore((s) => s.selectedVenue);
   const flyerUrl = useFestivalStore((s) => s.generatedFlyerUrl);
+  const [mounted, setMounted] = useState(false);
 
-  const completionSteps = [
-    { label: "Lineup generated", done: lineup !== null },
-    { label: "Stage designed", done: stageElements.length > 0 },
-    { label: "Venue selected", done: selectedVenue !== null },
-    { label: "Flyer generated", done: flyerUrl !== null },
+  useEffect(() => setMounted(true), []);
+
+  const done = [
+    lineup !== null,
+    stageElements.length > 0,
+    selectedVenue !== null,
+    flyerUrl !== null,
   ];
 
+  if (!mounted) return null;
+
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="pt-10 pb-6 px-4 text-center">
-        <h1
-          className="text-5xl sm:text-6xl font-extrabold tracking-tight glow-text"
-          style={{
-            background:
-              "linear-gradient(90deg, var(--festival-purple), var(--festival-pink), var(--festival-orange))",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          FESTIVAL MAINSTAGE BUILDER
-        </h1>
-        <p className="mt-3 text-lg text-purple-300/70 tracking-wide">
-          Design Your Dream Festival Experience
-        </p>
-      </header>
+    <>
+      <AnimatedBackground />
 
-      {/* Progress Indicator */}
-      <div className="flex items-center justify-center gap-4 sm:gap-6 px-4 pb-4">
-        {completionSteps.map((step, i) => (
-          <div key={i} className="flex items-center gap-1.5 text-xs sm:text-sm">
-            <span
-              className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
-                step.done
-                  ? "bg-green-500 text-white"
-                  : "border border-purple-500/40 text-purple-500/40"
-              }`}
-            >
-              {step.done ? "\u2713" : i + 1}
-            </span>
-            <span
-              className={
-                step.done ? "text-green-400" : "text-purple-400/40"
-              }
-            >
-              {step.label}
-            </span>
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* ─── Top Bar ─── */}
+        <header className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-black">
+              M
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold tracking-wide text-white/90">
+                Mainstage Builder
+              </h1>
+              <p className="text-[10px] text-white/25 tracking-wider uppercase">
+                Festival Creator
+              </p>
+            </div>
           </div>
-        ))}
+
+          {/* Progress dots */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            {done.map((d, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div
+                  className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                    d
+                      ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]"
+                      : i === activeTab
+                      ? "bg-purple-400 shadow-[0_0_6px_rgba(168,85,247,0.5)]"
+                      : "bg-white/10"
+                  }`}
+                />
+                {i < 3 && (
+                  <div className={`w-6 h-px ${d ? "bg-green-400/30" : "bg-white/[0.06]"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="text-[10px] text-white/20 tracking-widest uppercase">
+            {done.filter(Boolean).length}/4 complete
+          </div>
+        </header>
+
+        {/* ─── Navigation ─── */}
+        <nav className="px-6 py-3 border-b border-white/[0.04]">
+          <div className="max-w-5xl mx-auto flex gap-1">
+            {STEPS.map((step, i) => {
+              const isActive = activeTab === step.id;
+              const isDone = done[i];
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => setActiveTab(step.id)}
+                  className={`
+                    relative flex-1 px-4 py-2.5 rounded-lg text-left transition-all duration-200 cursor-pointer
+                    ${isActive
+                      ? "bg-white/[0.06] border border-white/[0.08]"
+                      : "hover:bg-white/[0.03] border border-transparent"
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className={`text-[10px] font-mono ${isActive ? "text-purple-400" : "text-white/20"}`}>
+                        {step.shortLabel}
+                      </span>
+                      <span className={`ml-2 text-sm font-medium ${isActive ? "text-white" : "text-white/40"}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                    {isDone && (
+                      <span className="text-green-400 text-xs">&#10003;</span>
+                    )}
+                  </div>
+                  <p className={`text-[11px] mt-0.5 ${isActive ? "text-white/30" : "text-white/10"}`}>
+                    {step.desc}
+                  </p>
+                  {isActive && (
+                    <div className="absolute bottom-0 left-4 right-4 h-px bg-gradient-to-r from-purple-500/50 via-pink-500/50 to-transparent" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* ─── Content ─── */}
+        <main className="flex-1 px-6 py-6">
+          <div className="max-w-5xl mx-auto" key={activeTab}>
+            <div className="tab-content-enter">
+              {activeTab === 0 && <QuizForm />}
+              {activeTab === 1 && <StageBuilder />}
+              {activeTab === 2 && <VenueFinder />}
+              {activeTab === 3 && <FlyerGenerator />}
+            </div>
+          </div>
+        </main>
+
+        {/* ─── Footer ─── */}
+        <footer className="px-6 py-3 border-t border-white/[0.04] flex items-center justify-between">
+          <span className="text-[10px] text-white/15 tracking-wider">
+            Forms &middot; WebGL &middot; Google Maps &middot; Nano Banana 2
+          </span>
+          <span className="text-[10px] text-white/10">
+            Festival Mainstage Builder
+          </span>
+        </footer>
       </div>
-
-      {/* Tab Bar */}
-      <nav className="flex justify-center gap-2 sm:gap-3 px-4 pb-6">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                px-4 py-2.5 rounded-full text-sm sm:text-base font-semibold
-                transition-all duration-300 cursor-pointer
-                ${
-                  isActive
-                    ? "bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 text-white tab-active"
-                    : "bg-white/5 text-purple-300/60 hover:bg-white/10 hover:text-purple-200 border border-purple-500/20"
-                }
-              `}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Tab Content */}
-      <main className="flex-1 px-4 pb-10 max-w-6xl w-full mx-auto">
-        <div className="rounded-2xl border border-purple-500/20 bg-white/[0.03] backdrop-blur-sm p-6 min-h-[500px]">
-          {activeTab === 0 && <QuizForm />}
-          {activeTab === 1 && <StageBuilder />}
-          {activeTab === 2 && <VenueFinder />}
-          {activeTab === 3 && <FlyerGenerator />}
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="py-4 text-center text-purple-400/30 text-xs tracking-widest uppercase">
-        Festival Mainstage Builder &mdash; Build. Design. Experience.
-      </footer>
-    </div>
+    </>
   );
 }

@@ -105,7 +105,6 @@ export default function VenueFinder() {
         description: venue.description,
         imageUrl: venue.imageUrl,
       });
-      store.setActiveTab(3);
     },
     [store],
   );
@@ -414,6 +413,57 @@ export default function VenueFinder() {
               );
             })}
           </div>
+
+          {/* Editable venue details (fallback layout) */}
+          {store.selectedVenue && (
+            <div className="mt-6 rounded-2xl border border-purple-500/30 bg-gray-900/80 p-5 max-w-xl mx-auto">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-purple-400">
+                Edit Venue Details
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                    Venue Name
+                  </label>
+                  <input
+                    type="text"
+                    value={store.selectedVenue.name}
+                    onChange={(e) => store.updateVenueName(e.target.value)}
+                    className="w-full rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                    Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={store.selectedVenue.description}
+                    onChange={(e) => store.updateVenueDescription(e.target.value)}
+                    className="w-full resize-none rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                    Venue Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Notes about this venue..."
+                    value={store.customNotes.venue}
+                    onChange={(e) => store.setCustomNote('venue', e.target.value)}
+                    className="w-full resize-none rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-1.5 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-pink-500/60"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => store.setActiveTab(3)}
+                className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white transition-all duration-200 shadow-lg shadow-fuchsia-600/30 hover:shadow-fuchsia-500/40 active:scale-[0.98]"
+              >
+                Confirm Venue &amp; Continue
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -467,23 +517,74 @@ export default function VenueFinder() {
           )}
         </aside>
 
-        {/* Map area */}
-        <div className="flex-1 relative">
-          {/* Loading spinner */}
-          {!mapLoaded && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-950">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-10 h-10 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                <p className="text-sm text-gray-500">Loading map...</p>
+        {/* Map + venue edit area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Map area */}
+          <div className="flex-1 relative">
+            {/* Loading spinner */}
+            {!mapLoaded && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-950">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-10 h-10 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                  <p className="text-sm text-gray-500">Loading map...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Map container */}
+            <div ref={mapContainerRef} className="w-full h-full" />
+
+            {/* Info card overlay */}
+            {selectedPreview && <InfoCard venue={selectedPreview} />}
+          </div>
+
+          {/* Editable venue details (below map) */}
+          {store.selectedVenue && (
+            <div className="shrink-0 border-t border-gray-800 bg-gray-950/90 px-6 py-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex-1 min-w-[180px]">
+                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                    Venue Name
+                  </label>
+                  <input
+                    type="text"
+                    value={store.selectedVenue.name}
+                    onChange={(e) => store.updateVenueName(e.target.value)}
+                    className="w-full rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                  />
+                </div>
+                <div className="flex-1 min-w-[180px]">
+                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={store.selectedVenue.description}
+                    onChange={(e) => store.updateVenueDescription(e.target.value)}
+                    className="w-full rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                  />
+                </div>
+                <div className="flex-1 min-w-[180px]">
+                  <label className="mb-1 block text-xs font-semibold text-purple-300/70">
+                    Venue Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Notes about this venue..."
+                    value={store.customNotes.venue}
+                    onChange={(e) => store.setCustomNote('venue', e.target.value)}
+                    className="w-full resize-none rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-1.5 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-pink-500/60"
+                  />
+                </div>
+                <button
+                  onClick={() => store.setActiveTab(3)}
+                  className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-all shadow-lg shadow-fuchsia-600/30 active:scale-[0.98]"
+                >
+                  Confirm &amp; Continue
+                </button>
               </div>
             </div>
           )}
-
-          {/* Map container */}
-          <div ref={mapContainerRef} className="w-full h-full" />
-
-          {/* Info card overlay */}
-          {selectedPreview && <InfoCard venue={selectedPreview} />}
         </div>
       </div>
     </div>

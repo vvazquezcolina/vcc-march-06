@@ -41,4 +41,5 @@ export interface FestivalState {
   stageSnapshot: string | null;
   generatedFlyerUrl: string | null;
   activeTab: number;
+  customNotes: { quiz: string; stage: string; venue: string; flyer: string };
 }

@@ -13,8 +13,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Festival Mainstage Builder",
-  description: "Design your dream music festival - Quiz, 3D Stage Builder, Venue Finder & AI Flyer Generator",
+  title: "Festival Mainstage Builder | Design Your Dream Festival",
+  description:
+    "Create your ultimate music festival - take a lineup quiz, design a 3D mainstage with lasers and pyrotechnics, find a real-world venue, and generate an AI-powered festival poster.",
+  keywords: [
+    "festival",
+    "music",
+    "mainstage",
+    "3D",
+    "WebGL",
+    "lineup",
+    "poster generator",
+  ],
+  openGraph: {
+    title: "Festival Mainstage Builder | Design Your Dream Festival",
+    description:
+      "Create your ultimate music festival - take a lineup quiz, design a 3D mainstage with lasers and pyrotechnics, find a real-world venue, and generate an AI-powered festival poster.",
+    type: "website",
+    siteName: "Festival Mainstage Builder",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Festival Mainstage Builder | Design Your Dream Festival",
+    description:
+      "Create your ultimate music festival - take a lineup quiz, design a 3D mainstage with lasers and pyrotechnics, find a real-world venue, and generate an AI-powered festival poster.",
+  },
+  themeColor: "#7c3aed",
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

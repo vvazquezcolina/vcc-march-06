@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFestivalStore } from "@/store/festival-store";
+import type { Lineup } from "@/types/festival";
 
 interface StepConfig {
   title: string;
@@ -98,12 +99,17 @@ export default function QuizForm() {
     }, 300);
   }
 
+  const [newArtistName, setNewArtistName] = useState<Record<string, string>>({
+    headliners: '',
+    subHeadliners: '',
+    openers: '',
+  });
+
   function handleNext() {
     if (!canProceed) return;
     if (isLastStep) {
       store.setQuizAnswers(answers);
       store.generateLineup();
-      store.setActiveTab(1);
       return;
     }
     animateTransition("forward", () => setCurrentStep((s) => s + 1));
@@ -267,6 +273,111 @@ export default function QuizForm() {
             />
           ))}
         </div>
+
+        {/* ── Editable Lineup (shown after quiz generates lineup) ── */}
+        {store.lineup && (
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-purple-900/30 backdrop-blur-xl sm:p-8">
+            <h2 className="mb-1 text-center text-2xl font-bold text-white">
+              Your Lineup
+            </h2>
+            <p className="mb-6 text-center text-sm text-purple-300/60">
+              Edit artist names, add or remove artists, then confirm
+            </p>
+
+            {(
+              [
+                { key: 'headliners' as const, label: 'Headliners' },
+                { key: 'subHeadliners' as const, label: 'Sub-Headliners' },
+                { key: 'openers' as const, label: 'Openers' },
+              ] as const
+            ).map(({ key, label }) => (
+              <div key={key} className="mb-5">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-purple-400">
+                  {label}
+                </h3>
+                <div className="space-y-2">
+                  {store.lineup![key].map((artist, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={artist.name}
+                        onChange={(e) =>
+                          store.updateArtistName(key, idx, e.target.value)
+                        }
+                        className="flex-1 rounded-lg border border-purple-500/30 bg-white/5 px-3 py-1.5 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-pink-500/60 focus:bg-white/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => store.removeArtist(key, idx)}
+                        className="shrink-0 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/25"
+                        title="Remove artist"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add artist */}
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder={`Add ${label.toLowerCase().slice(0, -1)}...`}
+                    value={newArtistName[key] ?? ''}
+                    onChange={(e) =>
+                      setNewArtistName((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (newArtistName[key] ?? '').trim()) {
+                        store.addArtist(key, newArtistName[key].trim(), answers.genre || 'mixed');
+                        setNewArtistName((prev) => ({ ...prev, [key]: '' }));
+                      }
+                    }}
+                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder-white/20 outline-none transition-colors focus:border-purple-400/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if ((newArtistName[key] ?? '').trim()) {
+                        store.addArtist(key, newArtistName[key].trim(), answers.genre || 'mixed');
+                        setNewArtistName((prev) => ({ ...prev, [key]: '' }));
+                      }
+                    }}
+                    className="shrink-0 rounded-md border border-purple-500/30 bg-purple-500/15 px-3 py-1.5 text-xs font-semibold text-purple-300 transition-colors hover:bg-purple-500/30"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Notes textarea */}
+            <div className="mt-4">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-widest text-purple-400">
+                Notes for your lineup
+              </label>
+              <textarea
+                rows={2}
+                placeholder="E.g. I want a surprise guest, late-night DJ set..."
+                value={store.customNotes.quiz}
+                onChange={(e) => store.setCustomNote('quiz', e.target.value)}
+                className="w-full resize-none rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-2 text-sm text-white placeholder-white/25 outline-none transition-colors focus:border-pink-500/60"
+              />
+            </div>
+
+            {/* Confirm button */}
+            <button
+              type="button"
+              onClick={() => store.setActiveTab(1)}
+              className="mt-6 w-full rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-pink-600/30 transition-all duration-200 hover:shadow-pink-600/50 hover:brightness-110 active:scale-[0.98]"
+            >
+              Confirm Lineup &amp; Continue
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
