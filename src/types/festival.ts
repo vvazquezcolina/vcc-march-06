@@ -23,6 +23,11 @@ export interface StageElement {
   type: 'laser' | 'screen' | 'pyro' | 'speaker' | 'light' | 'fog';
   position: [number, number, number];
   rotation: [number, number, number];
+  /**
+   * Uniform scale factor. Optional — defaults to 1 when absent. Modified
+   * via the in-scene TransformControls "Scale" mode.
+   */
+  scale?: number;
 }
 
 export interface Venue {

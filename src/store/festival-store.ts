@@ -133,7 +133,10 @@ const initialState: FestivalState = {
   selectedVenue: null,
   stageSnapshot: null,
   generatedFlyerUrl: null,
-  activeTab: 0,
+  // Land users directly on the Stage tab — the 3D builder is the headline
+  // feature, and the Lineup tab can be filled in later (the stage scene
+  // handles a missing lineup gracefully).
+  activeTab: 1,
   customNotes: { quiz: '', stage: '', venue: '', flyer: '' },
 };
 
