@@ -7,6 +7,7 @@ import VenueFinder from "@/components/VenueFinder";
 import FlyerGenerator from "@/components/FlyerGenerator";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import { useFestivalStore } from "@/store/festival-store";
+import { decodeFestivalFromUrl } from "@/lib/festival-codec";
 
 const StageBuilder = dynamic(() => import("@/components/StageBuilder"), {
   ssr: false,
@@ -36,7 +37,33 @@ export default function Home() {
   const flyerUrl = useFestivalStore((s) => s.generatedFlyerUrl);
   const [mounted, setMounted] = useState(false);
 
+  // SSR-safe mount flag. The setState-in-effect is the canonical way to
+  // delay rendering until hydration finishes; React 19's strictness flags
+  // it but the tradeoff is acceptable here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
+
+  // Hydrate the store from a `?stage=…` share link, exactly once on first
+  // mount. Strips the param afterward so a manual refresh gives the user a
+  // clean session instead of replaying the encoded state forever.
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("stage");
+    if (!encoded) return;
+    const data = decodeFestivalFromUrl(encoded);
+    if (!data) return;
+    const store = useFestivalStore.getState();
+    if (data.lineup) useFestivalStore.setState({ lineup: data.lineup });
+    if (data.selectedVenue)
+      useFestivalStore.setState({ selectedVenue: data.selectedVenue });
+    if (data.customNotes)
+      useFestivalStore.setState({ customNotes: data.customNotes });
+    if (Array.isArray(data.stageElements) && data.stageElements.length > 0) {
+      store.setStageElements(data.stageElements);
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [mounted]);
 
   const done = [
     lineup !== null,

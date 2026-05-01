@@ -27,16 +27,28 @@ import {
   Camera,
   Sun,
   Building2,
-  Eye,
   Box,
   Activity,
   Layers,
+  Save,
+  Link2,
+  Check,
+  X,
+  Users,
+  Mic2,
   type LucideIcon,
 } from 'lucide-react'
 import { useFestivalStore } from '@/store/festival-store'
 import type { StageElement } from '@/types/festival'
 import { STAGE_PRESETS } from '@/lib/stage-presets'
 import { StageErrorBoundary } from './StageErrorBoundary'
+import {
+  listSavedDesigns,
+  saveDesign,
+  deleteDesign,
+  type SavedDesign,
+} from '@/lib/saved-designs'
+import { encodeFestivalToUrl } from '@/lib/festival-codec'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 
 // ─── ELEMENT TYPE METADATA ─────────────────────────────────────────────────
@@ -71,10 +83,13 @@ interface CameraPreset {
 }
 
 const CAMERA_PRESETS: CameraPreset[] = [
-  { id: 'front',  label: 'Front',  Icon: Camera, position: [0, 6, 14],   target: [0, 3, 0] },
-  { id: 'hero',   label: '3/4',    Icon: Box,    position: [11, 7, 11],  target: [0, 3, 0] },
-  { id: 'top',    label: 'Top',    Icon: Layers, position: [0, 22, 0.1], target: [0, 0, 0] },
-  { id: 'pov',    label: 'POV',    Icon: Eye,    position: [0, 1.7, 9],  target: [0, 3, -2] },
+  { id: 'front',  label: 'Front',  Icon: Camera, position: [0, 6, 14],     target: [0, 3, 0] },
+  { id: 'hero',   label: '3/4',    Icon: Box,    position: [11, 7, 11],    target: [0, 3, 0] },
+  { id: 'top',    label: 'Top',    Icon: Layers, position: [0, 22, 0.1],   target: [0, 0, 0] },
+  // Audience side: standing in the crowd looking at the stage
+  { id: 'crowd',  label: 'Crowd',  Icon: Users,  position: [0, 1.7, 9],    target: [0, 3, -2] },
+  // Performer side: standing on the stage looking at the audience
+  { id: 'stage',  label: 'Stage',  Icon: Mic2,   position: [0, 1.6, -1.2], target: [0, 1.7, 9] },
 ]
 
 const CAMERA_TRANSITION_MS = 1400
@@ -1109,6 +1124,15 @@ export default function StageBuilder() {
   // canvas clean on first impression.
   const [showStats, setShowStats] = useState(false)
 
+  // Save/Load designs + share-link state. Lazy useState initializer reads
+  // localStorage once on first render — avoids a set-state-in-effect cascade.
+  const [designName, setDesignName] = useState('')
+  const [savedList, setSavedList] = useState<SavedDesign[]>(() =>
+    listSavedDesigns(),
+  )
+  const [copiedFlash, setCopiedFlash] = useState(false)
+  const refreshSaved = useCallback(() => setSavedList(listSavedDesigns()), [])
+
   // Imperative triggers — written by the in-Canvas helpers, called by the
   // toolbar buttons. Refs (not state) because we don't need re-renders when
   // they change.
@@ -1126,7 +1150,8 @@ export default function StageBuilder() {
   const hasInitialized = useRef(false)
 
   // First-visit boot: load the Festival Mainstage preset so users land on a
-  // pre-built scene rather than an empty floor.
+  // pre-built scene rather than an empty floor. Skips if the URL already
+  // hydrated stageElements (see page.tsx).
   useEffect(() => {
     if (!hasInitialized.current && stageElements.length === 0) {
       hasInitialized.current = true
@@ -1134,6 +1159,54 @@ export default function StageBuilder() {
       if (festival) setStageElements(festival.elements)
     }
   }, [stageElements.length, setStageElements])
+
+  const handleSaveDesign = useCallback(() => {
+    if (stageElements.length === 0) return
+    saveDesign(designName, stageElements)
+    setDesignName('')
+    refreshSaved()
+  }, [designName, stageElements, refreshSaved])
+
+  const handleLoadDesign = useCallback(
+    (d: SavedDesign) => {
+      setStageElements(d.stageElements)
+      setSelectedId(null)
+    },
+    [setStageElements],
+  )
+
+  const handleDeleteDesign = useCallback(
+    (id: string) => {
+      deleteDesign(id)
+      refreshSaved()
+    },
+    [refreshSaved],
+  )
+
+  const handleCopyShareLink = useCallback(async () => {
+    const fullState = useFestivalStore.getState()
+    const encoded = encodeFestivalToUrl({
+      lineup: fullState.lineup,
+      stageElements: fullState.stageElements.map((el) => ({
+        type: el.type,
+        position: el.position,
+        rotation: el.rotation,
+        scale: el.scale,
+      })),
+      selectedVenue: fullState.selectedVenue,
+      customNotes: fullState.customNotes,
+    })
+    const url = `${window.location.origin}${window.location.pathname}?stage=${encoded}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedFlash(true)
+      setTimeout(() => setCopiedFlash(false), 1800)
+    } catch {
+      // Some browsers refuse clipboard API outside HTTPS / user gesture.
+      // Fall back to opening a prompt the user can copy from manually.
+      window.prompt('Copy this share link:', url)
+    }
+  }, [])
 
   const selectedElement = stageElements.find((el) => el.id === selectedId)
   const selectedMeta = selectedElement
@@ -1184,7 +1257,7 @@ export default function StageBuilder() {
         <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
           Camera
         </h2>
-        <div className="grid grid-cols-4 gap-1.5 mb-2">
+        <div className="grid grid-cols-5 gap-1 mb-2">
           {CAMERA_PRESETS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -1356,12 +1429,87 @@ export default function StageBuilder() {
 
         <div className="flex-1" />
 
+        {/* ── Save / Share ── */}
+        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
+          Save / Share
+        </h2>
+
+        <div className="flex gap-1.5 mb-1.5">
+          <input
+            type="text"
+            placeholder="Design name…"
+            value={designName}
+            onChange={(e) => setDesignName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveDesign()
+            }}
+            className="flex-1 min-w-0 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-xs text-white placeholder-white/25 outline-none transition-colors focus:border-white/30"
+          />
+          <button
+            onClick={handleSaveDesign}
+            disabled={stageElements.length === 0}
+            title="Save current stage layout"
+            className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md bg-white/[0.08] hover:bg-white/[0.14] border border-white/[0.06] hover:border-white/15 text-white/70 hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Save className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </button>
+        </div>
+
+        {savedList.length > 0 && (
+          <div className="mb-2 max-h-[120px] overflow-y-auto pr-1 space-y-0.5">
+            {savedList.map((d) => (
+              <div
+                key={d.id}
+                className="group flex items-center gap-1 rounded-md border border-white/[0.04] hover:border-white/[0.10] bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+              >
+                <button
+                  onClick={() => handleLoadDesign(d)}
+                  title={`Load — ${d.stageElements.length} elements`}
+                  className="flex-1 min-w-0 px-2 py-1 text-left text-[11px] text-white/60 group-hover:text-white truncate cursor-pointer"
+                >
+                  {d.name}
+                </button>
+                <button
+                  onClick={() => handleDeleteDesign(d.id)}
+                  title="Delete saved design"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/30 hover:text-red-300 hover:bg-red-500/15 transition-colors cursor-pointer"
+                >
+                  <X className="h-3 w-3" strokeWidth={2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={handleCopyShareLink}
+          className={`mb-2 flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+            copiedFlash
+              ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+              : 'border-white/[0.08] bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white'
+          }`}
+        >
+          {copiedFlash ? (
+            <>
+              <Check className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Link copied
+            </>
+          ) : (
+            <>
+              <Link2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Copy share link
+            </>
+          )}
+        </button>
+
+        <div className="border-t border-white/[0.06] my-1" />
+
         <div className="mb-2">
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-white/40">
             Stage Notes
           </label>
           <textarea
-            rows={3}
+            rows={2}
             placeholder="Notes for your stage design..."
             value={customNotes.stage}
             onChange={(e) => setCustomNote('stage', e.target.value)}
