@@ -7,6 +7,7 @@ import {
   Text,
   Stars,
   Sky,
+  Environment,
   MeshReflectorMaterial,
   TransformControls,
   Stats,
@@ -60,17 +61,22 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 // Each element has: a Lucide icon for the toolbar, a label, a description,
 // and the bounding-box dimensions used to draw the selection wireframe.
 type TransformMode = 'translate' | 'rotate' | 'scale'
-type SceneMode = 'indoor' | 'outdoor'
+// Studio: max-clarity neutral lighting for building (default — no decorative
+// washes, HDRI fill, lift on shadows). Indoor: cinematic concert mood with
+// animated colored washes. Outdoor: sun + sky.
+type SceneMode = 'studio' | 'indoor' | 'outdoor'
 
 // Light-control defaults & ranges (kept here so the UI sliders and the
 // rendering code agree on the same numbers without indirection).
 const LIGHT_DEFAULTS = {
-  indoorBrightness: 1.4, // multiplier on ambient + key
+  studioBrightness: 1.0, // multiplier on studio ambient + key
+  indoorBrightness: 1.8, // bumped from 1.4 — concert mode used to crush detail
   sunIntensity: 2.5,
   sunElevation: 50, // degrees above horizon, 0..90
 } as const
 
 const LIGHT_RANGES = {
+  studioBrightness: { min: 0.3, max: 2.5, step: 0.05 },
   indoorBrightness: { min: 0.3, max: 3.0, step: 0.05 },
   sunIntensity: { min: 0.2, max: 5.0, step: 0.1 },
   sunElevation: { min: 5, max: 88, step: 1 },
@@ -199,18 +205,20 @@ function Mainstage() {
 
   return (
     <group>
-      {/* Stage floor — reflective concrete with a real normal map */}
+      {/* Stage floor — reflective concrete with a real normal map. Lifted
+          base color so the floor reads as a surface even under low light;
+          the mirror reflectivity still reads clearly. */}
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[16, 10]} />
         <MeshReflectorMaterial
-          mirror={0.35}
+          mirror={0.3}
           blur={[300, 100]}
           resolution={1024}
           mixBlur={1.2}
-          mixStrength={0.7}
-          color="#0e0e15"
-          metalness={0.5}
-          roughness={0.55}
+          mixStrength={0.6}
+          color="#22222e"
+          metalness={0.45}
+          roughness={0.6}
           normalMap={normalMap}
           normalScale={new THREE.Vector2(0.4, 0.4)}
         />
@@ -239,7 +247,7 @@ function Mainstage() {
           return (
             <mesh key={i} position={[x, 3.5, z]} rotation={[0, angle, 0]}>
               <boxGeometry args={[1.7, 7, 0.15]} />
-              <meshStandardMaterial color="#080812" metalness={0.6} roughness={0.4} />
+              <meshStandardMaterial color="#1a1a26" metalness={0.6} roughness={0.4} />
             </mesh>
           )
         })}
@@ -271,7 +279,7 @@ function Mainstage() {
           <group key={`truss-h-${z}`}>
             <mesh position={[0, 8, z]}>
               <boxGeometry args={[16, 0.12, 0.12]} />
-              <meshStandardMaterial color="#333340" metalness={0.9} roughness={0.15} />
+              <meshStandardMaterial color="#4a4a58" metalness={0.9} roughness={0.15} />
             </mesh>
             <mesh position={[0, 8, z]}>
               <boxGeometry args={[16, 0.06, 0.06]} />
@@ -284,7 +292,7 @@ function Mainstage() {
           [-3, 3].map((z) => (
             <mesh key={`pillar-${x}-${z}`} position={[x, 4, z]}>
               <boxGeometry args={[0.15, 8, 0.15]} />
-              <meshStandardMaterial color="#333340" metalness={0.9} roughness={0.15} />
+              <meshStandardMaterial color="#4a4a58" metalness={0.9} roughness={0.15} />
             </mesh>
           )),
         )}
@@ -292,7 +300,7 @@ function Mainstage() {
         {[-7.5, 7.5].map((x) => (
           <mesh key={`side-${x}`} position={[x, 8, 0]}>
             <boxGeometry args={[0.12, 0.12, 6.5]} />
-            <meshStandardMaterial color="#333340" metalness={0.9} roughness={0.15} />
+            <meshStandardMaterial color="#4a4a58" metalness={0.9} roughness={0.15} />
           </mesh>
         ))}
       </group>
@@ -301,7 +309,7 @@ function Mainstage() {
       <group position={[0, 0, -2]}>
         <mesh position={[0, 0.6, 0]}>
           <boxGeometry args={[3, 1.2, 1.2]} />
-          <meshStandardMaterial color="#0a0a14" metalness={0.5} roughness={0.4} />
+          <meshStandardMaterial color="#1d1d28" metalness={0.5} roughness={0.4} />
         </mesh>
         <mesh position={[0, 0.6, 0.61]}>
           <boxGeometry args={[2.9, 1.1, 0.02]} />
@@ -317,11 +325,11 @@ function Mainstage() {
       {/* CROWD AREA */}
       <mesh position={[0, -0.05, 9]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[20, 8]} />
-        <meshStandardMaterial color="#050508" />
+        <meshStandardMaterial color="#1a1a22" />
       </mesh>
       <mesh position={[0, 0.4, 5.3]}>
         <boxGeometry args={[14, 0.8, 0.1]} />
-        <meshStandardMaterial color="#222230" metalness={0.7} roughness={0.3} />
+        <meshStandardMaterial color="#3a3a48" metalness={0.7} roughness={0.3} />
       </mesh>
     </group>
   )
@@ -347,7 +355,7 @@ function LaserInner() {
     <group ref={ref}>
       <mesh position={[0, 0.15, 0]}>
         <cylinderGeometry args={[0.2, 0.25, 0.3, 8]} />
-        <meshStandardMaterial color="#1a1a2a" metalness={0.8} roughness={0.3} />
+        <meshStandardMaterial color="#2c2c3a" metalness={0.8} roughness={0.3} />
       </mesh>
       {[-0.2, 0, 0.2].map((x, i) => {
         const colors = ['#00ff88', '#00ffcc', '#00ff88']
@@ -382,7 +390,7 @@ function LEDScreenInner() {
     <group>
       <mesh position={[0, 1.6, 0]}>
         <boxGeometry args={[3.2, 2.2, 0.12]} />
-        <meshStandardMaterial color="#111118" metalness={0.9} roughness={0.2} />
+        <meshStandardMaterial color="#22222e" metalness={0.9} roughness={0.2} />
       </mesh>
       <mesh ref={ref} position={[0, 1.6, 0.07]}>
         <boxGeometry args={[3, 2, 0.02]} />
@@ -390,7 +398,7 @@ function LEDScreenInner() {
       </mesh>
       <mesh position={[0, 0.25, 0]}>
         <cylinderGeometry args={[0.08, 0.08, 0.5, 6]} />
-        <meshStandardMaterial color="#333340" metalness={0.9} roughness={0.2} />
+        <meshStandardMaterial color="#4a4a58" metalness={0.9} roughness={0.2} />
       </mesh>
       <pointLight color="#aa55ff" intensity={6} distance={10} position={[0, 1.6, 1]} />
     </group>
@@ -417,7 +425,7 @@ function PyroInner() {
     <group>
       <mesh position={[0, 0.75, 0]}>
         <cylinderGeometry args={[0.15, 0.2, 1.5, 8]} />
-        <meshStandardMaterial color="#2a2a35" metalness={0.9} roughness={0.2} />
+        <meshStandardMaterial color="#3c3c48" metalness={0.9} roughness={0.2} />
       </mesh>
       <mesh position={[0, 1.55, 0]}>
         <cylinderGeometry args={[0.12, 0.15, 0.1, 8]} />
@@ -461,11 +469,11 @@ function SpeakerStackInner() {
         <group key={i} position={[0, y, 0]}>
           <mesh>
             <boxGeometry args={[1.2, 0.5, 0.7]} />
-            <meshStandardMaterial color="#0f0f14" metalness={0.6} roughness={0.3} />
+            <meshStandardMaterial color="#1f1f28" metalness={0.6} roughness={0.3} />
           </mesh>
           <mesh position={[0, 0, 0.36]}>
             <circleGeometry args={[0.18, 16]} />
-            <meshStandardMaterial color="#1a1a24" metalness={0.4} roughness={0.6} />
+            <meshStandardMaterial color="#2a2a34" metalness={0.4} roughness={0.6} />
           </mesh>
           <mesh position={[0, 0, 0.36]}>
             <torusGeometry args={[0.18, 0.02, 8, 16]} />
@@ -496,18 +504,18 @@ function LightingRigInner() {
     <group>
       <mesh>
         <boxGeometry args={[5, 0.1, 0.1]} />
-        <meshStandardMaterial color="#444450" metalness={0.9} roughness={0.15} />
+        <meshStandardMaterial color="#5a5a68" metalness={0.9} roughness={0.15} />
       </mesh>
       <mesh position={[0, -0.15, 0]}>
         <boxGeometry args={[5, 0.06, 0.06]} />
-        <meshStandardMaterial color="#333340" metalness={0.9} roughness={0.2} />
+        <meshStandardMaterial color="#4a4a58" metalness={0.9} roughness={0.2} />
       </mesh>
       <group ref={fixturesRef}>
         {colors.map((color, i) => (
           <group key={i} position={[(i - 2.5) * 0.9, -0.3, 0]}>
             <mesh>
               <cylinderGeometry args={[0.08, 0.12, 0.2, 8]} />
-              <meshStandardMaterial color="#222230" metalness={0.8} roughness={0.3} />
+              <meshStandardMaterial color="#3a3a44" metalness={0.8} roughness={0.3} />
             </mesh>
             <spotLight color={color} intensity={20} distance={15} angle={0.4} penumbra={0.7} position={[0, -0.15, 0]} />
             <mesh position={[0, -0.12, 0]}>
@@ -542,7 +550,7 @@ function FogInner() {
     <group>
       <mesh position={[0, 0.12, 0]}>
         <boxGeometry args={[0.5, 0.25, 0.3]} />
-        <meshStandardMaterial color="#2a2a35" metalness={0.7} roughness={0.3} />
+        <meshStandardMaterial color="#3c3c48" metalness={0.7} roughness={0.3} />
       </mesh>
       <mesh position={[0.3, 0.18, 0]} rotation={[0, 0, -0.3]}>
         <cylinderGeometry args={[0.04, 0.06, 0.15, 8]} />
@@ -650,30 +658,39 @@ function LineupText() {
 }
 
 // ─── STAGE LIGHTING ────────────────────────────────────────────────────────
-// Two modes:
-//  - indoor:  bright ambient + white front key + the existing animated
-//             colored washes (full intensity). Concert/arena look. Brightness
-//             slider scales ambient + key + colored washes uniformly.
-//  - outdoor: drei <Sky> dome + directional sun (intensity & elevation
-//             controllable). Colored washes stay but at 35% intensity so the
-//             sun reads as the dominant light source.
+// Three modes:
+//  - studio:  HDRI environment + bright neutral key + soft fills, NO colored
+//             washes, no fog, no stars. Built for clarity while constructing
+//             the stage. Default — first impression should be "I can see
+//             everything I'm building."
+//  - indoor:  cinematic concert mood with animated colored washes + uplights.
+//             Use for hero shots / exports. Brightness slider lifts the whole
+//             rig including the white front key.
+//  - outdoor: drei <Sky> dome + directional sun (intensity + elevation).
+//             Colored washes drop to 35% so the sun reads as the dominant
+//             source.
 function StageLighting({
   mode,
+  studioBrightness,
   indoorBrightness,
   sunIntensity,
   sunElevation,
 }: {
   mode: SceneMode
+  studioBrightness: number
   indoorBrightness: number
   sunIntensity: number
   sunElevation: number
 }) {
   const animatedRef = useRef<THREE.Group>(null)
-  // The colored washes flicker; keep them animated in both modes but scale
-  // their base intensity by the active mode multiplier.
-  const washMultiplier = mode === 'outdoor' ? 0.35 : indoorBrightness
+  // Colored washes only run in non-studio modes — Studio is intentionally
+  // lit-flat for inspection.
+  const washMultiplier =
+    mode === 'studio' ? 0 : mode === 'outdoor' ? 0.35 : indoorBrightness
+  const washesActive = mode !== 'studio'
 
   useFrame(({ clock }) => {
+    if (!washesActive) return
     if (animatedRef.current) {
       const t = clock.getElapsedTime()
       // Bass adds a punchy intensity boost so the colored washes "kick" with
@@ -698,6 +715,48 @@ function StageLighting({
     Math.sin(elevationRad) * sunDistance,
     Math.cos(elevationRad) * sunDistance,
   ]
+
+  if (mode === 'studio') {
+    // Maximum-clarity build view. HDRI gives even ambient, key wash from
+    // front fills the stage face, hemisphere bounces light from "above".
+    // No fog, no stars — those are scenic, not informational.
+    return (
+      <>
+        <Environment preset="city" environmentIntensity={0.6 * studioBrightness} />
+        <ambientLight intensity={0.55 * studioBrightness} color="#ffffff" />
+        <hemisphereLight
+          args={['#dde6f3', '#2a2530', 0.7 * studioBrightness]}
+        />
+        {/* Neutral key wash from the audience side */}
+        <spotLight
+          position={[0, 14, 10]}
+          angle={0.7}
+          penumbra={0.85}
+          intensity={28 * studioBrightness}
+          color="#ffffff"
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+        />
+        {/* Soft fill from above the stage */}
+        <directionalLight
+          position={[0, 18, -2]}
+          intensity={1.0 * studioBrightness}
+          color="#ffffff"
+        />
+        {/* Side rim fills so elements aren't black on the back */}
+        <directionalLight
+          position={[-12, 6, 0]}
+          intensity={0.6 * studioBrightness}
+          color="#fff7e8"
+        />
+        <directionalLight
+          position={[12, 6, 0]}
+          intensity={0.6 * studioBrightness}
+          color="#e8f0ff"
+        />
+      </>
+    )
+  }
 
   if (mode === 'outdoor') {
     return (
@@ -739,15 +798,19 @@ function StageLighting({
   return (
     <>
       {/* Bright ambient so detail doesn't get lost in shadow */}
-      <ambientLight intensity={0.35 * indoorBrightness} color="#3a2a55" />
+      <ambientLight intensity={0.55 * indoorBrightness} color="#4a3a6a" />
       {/* White front key wash */}
       <spotLight
         position={[0, 12, 8]}
-        angle={0.5}
+        angle={0.6}
         penumbra={0.8}
-        intensity={20 * indoorBrightness}
+        intensity={26 * indoorBrightness}
         color="#ffffff"
         castShadow
+      />
+      {/* Hemisphere fill so back of elements isn't pure black */}
+      <hemisphereLight
+        args={['#a48fc4', '#1a1530', 0.4 * indoorBrightness]}
       />
       {/* Animated colored washes */}
       <group ref={animatedRef}>
@@ -877,6 +940,7 @@ function SceneContents({
   onSelect,
   transformMode,
   sceneMode,
+  studioBrightness,
   indoorBrightness,
   sunIntensity,
   sunElevation,
@@ -890,6 +954,7 @@ function SceneContents({
   onSelect: (id: string | null) => void
   transformMode: TransformMode
   sceneMode: SceneMode
+  studioBrightness: number
   indoorBrightness: number
   sunIntensity: number
   sunElevation: number
@@ -959,21 +1024,38 @@ function SceneContents({
         maxDistance={30}
         target={[0, 3, 0]}
       />
-      {/* Stars are concert-mood — only indoors. Outside the sky dome takes over. */}
+      {/* Stars are concert-mood — only indoors. Outside the sky dome takes
+          over; in studio we want a clean neutral background. */}
       {sceneMode === 'indoor' && (
         <Stars radius={100} depth={60} count={5000} factor={6} saturation={0.3} fade speed={1} />
       )}
-      {/* Lighter, less saturated fog outdoors so daylight reads clean. */}
+      {/* Mode-specific atmosphere:
+          - studio: very light, far fog so the void doesn't read as black
+          - outdoor: light blue fog (daylight haze)
+          - indoor: dense purple fog (concert mood) */}
       <fog
         attach="fog"
         args={
-          sceneMode === 'outdoor'
-            ? ['#bcd0e3', 40, 90]
-            : ['#0a0015', 25, 60]
+          sceneMode === 'studio'
+            ? ['#1f2030', 50, 120]
+            : sceneMode === 'outdoor'
+              ? ['#bcd0e3', 40, 90]
+              : ['#0a0015', 25, 60]
         }
+      />
+      <color
+        attach="background"
+        args={[
+          sceneMode === 'studio'
+            ? '#0e0f18'
+            : sceneMode === 'outdoor'
+              ? '#7fa3c8'
+              : '#020208',
+        ]}
       />
       <StageLighting
         mode={sceneMode}
+        studioBrightness={studioBrightness}
         indoorBrightness={indoorBrightness}
         sunIntensity={sunIntensity}
         sunElevation={sunElevation}
@@ -1139,7 +1221,10 @@ export default function StageBuilder() {
   // Lighting controls — local state, applied live to the scene. Explicit
   // <number> annotation; otherwise the LIGHT_DEFAULTS `as const` literals
   // narrow the state type and break the slider onChange signature.
-  const [sceneMode, setSceneMode] = useState<SceneMode>('indoor')
+  // Default mode is 'studio' so the first impression is "I can see what
+  // I'm building" rather than the cinematic-but-dim concert preset.
+  const [sceneMode, setSceneMode] = useState<SceneMode>('studio')
+  const [studioBrightness, setStudioBrightness] = useState<number>(LIGHT_DEFAULTS.studioBrightness)
   const [indoorBrightness, setIndoorBrightness] = useState<number>(LIGHT_DEFAULTS.indoorBrightness)
   const [sunIntensity, setSunIntensity] = useState<number>(LIGHT_DEFAULTS.sunIntensity)
   const [sunElevation, setSunElevation] = useState<number>(LIGHT_DEFAULTS.sunElevation)
@@ -1375,11 +1460,12 @@ export default function StageBuilder() {
           Lighting
         </h2>
 
-        <div className="grid grid-cols-2 gap-1.5 mb-2">
+        <div className="grid grid-cols-3 gap-1 mb-2">
           {(
             [
-              { mode: 'indoor' as const, Icon: Building2, label: 'Indoor' },
-              { mode: 'outdoor' as const, Icon: Sun, label: 'Outdoor' },
+              { mode: 'studio' as const,  Icon: Lightbulb, label: 'Studio' },
+              { mode: 'indoor' as const,  Icon: Building2, label: 'Indoor' },
+              { mode: 'outdoor' as const, Icon: Sun,       label: 'Outdoor' },
             ] as const
           ).map(({ mode, Icon, label }) => {
             const isActive = sceneMode === mode
@@ -1389,7 +1475,14 @@ export default function StageBuilder() {
                 onClick={() => setSceneMode(mode)}
                 aria-label={`${label} lighting mode`}
                 aria-pressed={isActive}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                title={
+                  mode === 'studio'
+                    ? 'Bright neutral lighting — best for building'
+                    : mode === 'indoor'
+                      ? 'Concert mood — animated colored washes'
+                      : 'Daylight — sun + sky'
+                }
+                className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-md text-[10px] font-medium border transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-white/[0.12] border-white/30 text-white'
                     : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:text-white/80 hover:border-white/15'
@@ -1402,7 +1495,17 @@ export default function StageBuilder() {
           })}
         </div>
 
-        {sceneMode === 'indoor' ? (
+        {sceneMode === 'studio' ? (
+          <SliderRow
+            label="Brightness"
+            value={studioBrightness}
+            min={LIGHT_RANGES.studioBrightness.min}
+            max={LIGHT_RANGES.studioBrightness.max}
+            step={LIGHT_RANGES.studioBrightness.step}
+            display={studioBrightness.toFixed(2) + '×'}
+            onChange={setStudioBrightness}
+          />
+        ) : sceneMode === 'indoor' ? (
           <SliderRow
             label="Brightness"
             value={indoorBrightness}
@@ -1635,7 +1738,10 @@ export default function StageBuilder() {
               preserveDrawingBuffer: true,
               antialias: true,
               toneMapping: THREE.ACESFilmicToneMapping,
-              toneMappingExposure: 1,
+              // Bumped from 1.0 → 1.4 so mid-tones lift before ACES roll-off
+              // crushes them. Combined with brighter ambients per mode this
+              // is the difference between "I can see what I built" and "...?"
+              toneMappingExposure: 1.4,
             }}
             camera={{ position: [0, 6, 14], fov: 55, near: 0.1, far: 200 }}
           >
@@ -1644,6 +1750,7 @@ export default function StageBuilder() {
               onSelect={setSelectedId}
               transformMode={transformMode}
               sceneMode={sceneMode}
+              studioBrightness={studioBrightness}
               indoorBrightness={indoorBrightness}
               sunIntensity={sunIntensity}
               sunElevation={sunElevation}
