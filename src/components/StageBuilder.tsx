@@ -38,6 +38,10 @@ import {
   Users,
   Mic2,
   Menu,
+  Waves,
+  Sprout,
+  Ticket,
+  Mountain,
   type LucideIcon,
 } from 'lucide-react'
 import { useFestivalStore } from '@/store/festival-store'
@@ -65,6 +69,97 @@ type TransformMode = 'translate' | 'rotate' | 'scale'
 // washes, HDRI fill, lift on shadows). Indoor: cinematic concert mood with
 // animated colored washes. Outdoor: sun + sky.
 type SceneMode = 'studio' | 'indoor' | 'outdoor'
+
+// Outdoor sub-scenarios — only used when sceneMode === 'outdoor'.
+type OutdoorScenario = 'beach' | 'field' | 'stadium' | 'desert'
+
+interface OutdoorScenarioMeta {
+  id: OutdoorScenario
+  label: string
+  Icon: LucideIcon
+  description: string
+  groundColor: string
+  groundRoughness: number
+  ambientColor: string
+  sunTint: string
+  envPreset:
+    | 'apartment'
+    | 'city'
+    | 'dawn'
+    | 'forest'
+    | 'lobby'
+    | 'night'
+    | 'park'
+    | 'studio'
+    | 'sunset'
+    | 'warehouse'
+  // Sky tweaks
+  turbidity: number
+  rayleigh: number
+  // Whether to render the small CrowdArea floor patch (or let venue ground take over)
+  crowdFloorOverrideColor?: string
+}
+
+const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
+  {
+    id: 'field',
+    label: 'Field',
+    Icon: Sprout,
+    description: 'Open grass field — Glastonbury / Coachella mainstage',
+    groundColor: '#3a6234',
+    groundRoughness: 0.95,
+    ambientColor: '#fff4d6',
+    sunTint: '#fffaf0',
+    envPreset: 'park',
+    turbidity: 4,
+    rayleigh: 1.5,
+    crowdFloorOverrideColor: '#3a6234',
+  },
+  {
+    id: 'beach',
+    label: 'Beach',
+    Icon: Waves,
+    description: 'Beach sunset — warm light, sand floor',
+    groundColor: '#e6cf95',
+    groundRoughness: 0.8,
+    ambientColor: '#ffd9a8',
+    sunTint: '#ffd1a0',
+    envPreset: 'sunset',
+    turbidity: 8,
+    rayleigh: 5,
+    crowdFloorOverrideColor: '#e6cf95',
+  },
+  {
+    id: 'stadium',
+    label: 'Stadium',
+    Icon: Ticket,
+    description: 'Concrete bowl with tiered seating around the stage',
+    groundColor: '#4a4a52',
+    groundRoughness: 0.7,
+    ambientColor: '#eef0f8',
+    sunTint: '#ffffff',
+    envPreset: 'city',
+    turbidity: 3,
+    rayleigh: 1.8,
+    crowdFloorOverrideColor: '#4a4a52',
+  },
+  {
+    id: 'desert',
+    label: 'Desert',
+    Icon: Mountain,
+    description: 'Sand dunes + hazy sun — Coachella / Burning Man feel',
+    groundColor: '#c89762',
+    groundRoughness: 0.95,
+    ambientColor: '#ffc888',
+    sunTint: '#ffd29a',
+    envPreset: 'sunset',
+    turbidity: 12,
+    rayleigh: 3,
+    crowdFloorOverrideColor: '#c89762',
+  },
+]
+
+const OUTDOOR_BY_ID = new Map(OUTDOOR_SCENARIOS.map((s) => [s.id, s]))
 
 // Light-control defaults & ranges (kept here so the UI sliders and the
 // rendering code agree on the same numbers without indirection).
@@ -194,7 +289,7 @@ function GlowRing({
 }
 
 // ─── MAINSTAGE STRUCTURE ───────────────────────────────────────────────────
-function Mainstage() {
+function Mainstage({ crowdFloorColor = '#1a1a22' }: { crowdFloorColor?: string }) {
   // drei's normal-map library — gives us a real PBR surface without shipping
   // texture files. Index 3 is a fine-grain noise that reads as polished
   // concrete under stage lights.
@@ -325,7 +420,7 @@ function Mainstage() {
       {/* CROWD AREA */}
       <mesh position={[0, -0.05, 9]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[20, 8]} />
-        <meshStandardMaterial color="#1a1a22" />
+        <meshStandardMaterial color={crowdFloorColor} />
       </mesh>
       <mesh position={[0, 0.4, 5.3]}>
         <boxGeometry args={[14, 0.8, 0.1]} />
@@ -657,6 +752,137 @@ function LineupText() {
   )
 }
 
+// ─── VENUE GROUND ──────────────────────────────────────────────────────────
+// Wide ground plane that wraps the stage in outdoor mode. Sits slightly
+// below the existing crowd-area floor so they don't z-fight, and the
+// crowd-area is recolored to match (passed via Mainstage prop) so the
+// terrain reads continuous.
+function VenueGround({ scenario }: { scenario: OutdoorScenarioMeta }) {
+  return (
+    <>
+      <mesh
+        position={[0, -0.08, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <circleGeometry args={[80, 64]} />
+        <meshStandardMaterial
+          color={scenario.groundColor}
+          roughness={scenario.groundRoughness}
+          metalness={0.05}
+        />
+      </mesh>
+      {scenario.id === 'stadium' && <StadiumSeating />}
+      {scenario.id === 'beach' && <BeachDecor />}
+      {scenario.id === 'desert' && <DesertDunes />}
+    </>
+  )
+}
+
+// Concentric tiered risers wrapping the audience area. ~270° around so
+// the back of the stage stays open. Reads as "stadium bowl" without
+// modeling individual seats.
+function StadiumSeating() {
+  const tiers = 9
+  return (
+    <group position={[0, 0, 4]}>
+      {Array.from({ length: tiers }).map((_, i) => {
+        const r = 18 + i * 1.4
+        const h = 0.6 + i * 0.7
+        return (
+          <mesh
+            key={i}
+            position={[0, h, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            receiveShadow
+          >
+            {/* Half ring — open toward the stage so the audience faces in */}
+            <ringGeometry
+              args={[r, r + 1.3, 48, 1, Math.PI * 0.18, Math.PI * 1.64]}
+            />
+            <meshStandardMaterial
+              color={i % 2 === 0 ? '#52525c' : '#48484f'}
+              roughness={0.9}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
+// A few minimal beach props at the venue edges — implied palm
+// silhouettes. Cheap (basic geometries, no textures).
+function BeachDecor() {
+  // useState lazy initializer keeps the React-rules-of-purity rule happy:
+  // Math.random() runs exactly once on first mount, the layout is then
+  // stable for the lifetime of the component.
+  const [palms] = useState(() =>
+    Array.from({ length: 8 }, (_, i) => {
+      const angle = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.3
+      const radius = 22 + Math.random() * 6
+      return {
+        x: Math.cos(angle) * radius,
+        z: Math.sin(angle) * radius,
+        height: 4 + Math.random() * 2,
+        tilt: (Math.random() - 0.5) * 0.15,
+      }
+    }),
+  )
+  return (
+    <group>
+      {palms.map((p, i) => (
+        <group key={i} position={[p.x, 0, p.z]} rotation={[0, 0, p.tilt]}>
+          {/* Trunk */}
+          <mesh position={[0, p.height / 2, 0]}>
+            <cylinderGeometry args={[0.1, 0.18, p.height, 8]} />
+            <meshStandardMaterial color="#5a3f25" roughness={0.95} />
+          </mesh>
+          {/* Crown — rough disc of "leaves" */}
+          <mesh position={[0, p.height + 0.3, 0]}>
+            <sphereGeometry args={[1.2, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2.5]} />
+            <meshStandardMaterial color="#4a6b32" roughness={0.95} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+// A few rolling dunes scattered in the distance. Flat-bottom hemispheres
+// give the silhouette without heavy geometry.
+function DesertDunes() {
+  const [dunes] = useState(() =>
+    Array.from({ length: 12 }, (_, i) => {
+      const angle = (i / 12) * Math.PI * 2
+      const radius = 28 + Math.random() * 14
+      return {
+        x: Math.cos(angle) * radius,
+        z: Math.sin(angle) * radius,
+        scale: 4 + Math.random() * 5,
+        rotY: Math.random() * Math.PI,
+      }
+    }),
+  )
+  return (
+    <group>
+      {dunes.map((d, i) => (
+        <mesh
+          key={i}
+          position={[d.x, -0.5, d.z]}
+          rotation={[0, d.rotY, 0]}
+          scale={[d.scale, d.scale * 0.4, d.scale]}
+          receiveShadow
+        >
+          <sphereGeometry args={[1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#b8895a" roughness={0.95} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 // ─── STAGE LIGHTING ────────────────────────────────────────────────────────
 // Three modes:
 //  - studio:  HDRI environment + bright neutral key + soft fills, NO colored
@@ -675,12 +901,14 @@ function StageLighting({
   indoorBrightness,
   sunIntensity,
   sunElevation,
+  outdoorScenario,
 }: {
   mode: SceneMode
   studioBrightness: number
   indoorBrightness: number
   sunIntensity: number
   sunElevation: number
+  outdoorScenario: OutdoorScenarioMeta
 }) {
   const animatedRef = useRef<THREE.Group>(null)
   // Colored washes only run in non-studio modes — Studio is intentionally
@@ -763,18 +991,26 @@ function StageLighting({
       <>
         <Sky
           sunPosition={sunPos}
-          turbidity={6}
-          rayleigh={2}
+          turbidity={outdoorScenario.turbidity}
+          rayleigh={outdoorScenario.rayleigh}
           mieCoefficient={0.005}
           mieDirectionalG={0.8}
         />
-        {/* Sun fill — softens shadows, adds warm ambient */}
-        <ambientLight intensity={0.4 * sunIntensity} color="#fff4d6" />
+        {/* IBL via scenario-appropriate HDRI (no background — Sky owns that) */}
+        <Environment
+          preset={outdoorScenario.envPreset}
+          environmentIntensity={0.45 * sunIntensity}
+        />
+        {/* Sun fill — softens shadows, adds scenario-tinted ambient */}
+        <ambientLight
+          intensity={0.4 * sunIntensity}
+          color={outdoorScenario.ambientColor}
+        />
         {/* The sun itself */}
         <directionalLight
           position={sunPos}
           intensity={sunIntensity}
-          color="#fffaf0"
+          color={outdoorScenario.sunTint}
           castShadow
           shadow-mapSize={[2048, 2048]}
         />
@@ -944,6 +1180,7 @@ function SceneContents({
   indoorBrightness,
   sunIntensity,
   sunElevation,
+  outdoorScenarioId,
   showStats,
   crowdDensity,
   captureRef,
@@ -958,12 +1195,15 @@ function SceneContents({
   indoorBrightness: number
   sunIntensity: number
   sunElevation: number
+  outdoorScenarioId: OutdoorScenario
   showStats: boolean
   crowdDensity: number
   captureRef: React.MutableRefObject<(() => void) | null>
   downloadRef: React.MutableRefObject<(() => void) | null>
   cameraTriggerRef: React.MutableRefObject<((preset: CameraPreset) => void) | null>
 }) {
+  const outdoorScenario =
+    OUTDOOR_BY_ID.get(outdoorScenarioId) ?? OUTDOOR_SCENARIOS[0]
   const stageElements = useFestivalStore((s) => s.stageElements)
   const { camera } = useThree()
   const orbitRef = useRef<OrbitControlsImpl | null>(null)
@@ -1031,7 +1271,7 @@ function SceneContents({
       )}
       {/* Mode-specific atmosphere:
           - studio: very light, far fog so the void doesn't read as black
-          - outdoor: light blue fog (daylight haze)
+          - outdoor: scenario-specific haze + tint
           - indoor: dense purple fog (concert mood) */}
       <fog
         attach="fog"
@@ -1039,7 +1279,13 @@ function SceneContents({
           sceneMode === 'studio'
             ? ['#1f2030', 50, 120]
             : sceneMode === 'outdoor'
-              ? ['#bcd0e3', 40, 90]
+              ? outdoorScenarioId === 'desert'
+                ? ['#e8c598', 30, 75]
+                : outdoorScenarioId === 'beach'
+                  ? ['#ffd9b0', 35, 85]
+                  : outdoorScenarioId === 'stadium'
+                    ? ['#a8b0c0', 50, 110]
+                    : ['#bcd0e3', 40, 90]
               : ['#0a0015', 25, 60]
         }
       />
@@ -1049,7 +1295,13 @@ function SceneContents({
           sceneMode === 'studio'
             ? '#0e0f18'
             : sceneMode === 'outdoor'
-              ? '#7fa3c8'
+              ? outdoorScenarioId === 'desert'
+                ? '#d4a878'
+                : outdoorScenarioId === 'beach'
+                  ? '#f5c89a'
+                  : outdoorScenarioId === 'stadium'
+                    ? '#92a0b8'
+                    : '#7fa3c8'
               : '#020208',
         ]}
       />
@@ -1059,8 +1311,16 @@ function SceneContents({
         indoorBrightness={indoorBrightness}
         sunIntensity={sunIntensity}
         sunElevation={sunElevation}
+        outdoorScenario={outdoorScenario}
       />
-      <Mainstage />
+      <Mainstage
+        crowdFloorColor={
+          sceneMode === 'outdoor'
+            ? outdoorScenario.crowdFloorOverrideColor
+            : undefined
+        }
+      />
+      {sceneMode === 'outdoor' && <VenueGround scenario={outdoorScenario} />}
       <Crowd density={crowdDensity} />
       <LineupText />
 
@@ -1228,6 +1488,7 @@ export default function StageBuilder() {
   const [indoorBrightness, setIndoorBrightness] = useState<number>(LIGHT_DEFAULTS.indoorBrightness)
   const [sunIntensity, setSunIntensity] = useState<number>(LIGHT_DEFAULTS.sunIntensity)
   const [sunElevation, setSunElevation] = useState<number>(LIGHT_DEFAULTS.sunElevation)
+  const [outdoorScenarioId, setOutdoorScenarioId] = useState<OutdoorScenario>('field')
 
   // Stats overlay (FPS / draw calls / mem) — off by default to keep the
   // canvas clean on first impression.
@@ -1517,6 +1778,28 @@ export default function StageBuilder() {
           />
         ) : (
           <>
+            <div className="grid grid-cols-4 gap-1 mb-2">
+              {OUTDOOR_SCENARIOS.map(({ id, label, Icon, description }) => {
+                const isActive = outdoorScenarioId === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setOutdoorScenarioId(id)}
+                    aria-label={`${label} outdoor scenario`}
+                    aria-pressed={isActive}
+                    title={description}
+                    className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-md text-[9px] font-medium border transition-colors cursor-pointer ${
+                      isActive
+                        ? 'bg-white/[0.12] border-white/30 text-white'
+                        : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:text-white/80 hover:border-white/15'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
             <SliderRow
               label="Sun intensity"
               value={sunIntensity}
@@ -1754,6 +2037,7 @@ export default function StageBuilder() {
               indoorBrightness={indoorBrightness}
               sunIntensity={sunIntensity}
               sunElevation={sunElevation}
+              outdoorScenarioId={outdoorScenarioId}
               showStats={showStats}
               crowdDensity={crowdDensity}
               captureRef={captureRef}
