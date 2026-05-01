@@ -6,7 +6,6 @@ import {
   OrbitControls,
   Text,
   Stars,
-  Sky,
   Cloud,
   Clouds,
   Environment,
@@ -95,9 +94,10 @@ interface OutdoorScenarioMeta {
     | 'studio'
     | 'sunset'
     | 'warehouse'
-  // Sky tweaks
-  turbidity: number
-  rayleigh: number
+  // Custom sky dome — vertical gradient from top → horizon. Replaces drei's
+  // procedural Sky which had depth-test + below-horizon-clamp issues.
+  skyTop: string
+  skyHorizon: string
   // Cloud rendering — count and color tint per scenario
   cloudCount: number
   cloudColor: string
@@ -106,10 +106,8 @@ interface OutdoorScenarioMeta {
 }
 
 const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
-  // Sky parameters tuned for prominent blue:
-  //   - rayleigh: high values mean strong blue scattering at high angles
-  //   - turbidity: low values mean clear (less haze whitening)
-  // Reference: typical "deep blue sunny day" → turbidity≈2, rayleigh≈3
+  // Sky colors are baked per scenario. The dome shader gradients smoothly
+  // from skyTop (zenith) to skyHorizon (where it meets the ground plane).
   {
     id: 'field',
     label: 'Field',
@@ -120,8 +118,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     ambientColor: '#fff4d6',
     sunTint: '#fffaf0',
     envPreset: 'park',
-    turbidity: 2,
-    rayleigh: 3,
+    skyTop: '#1f6fb8',
+    skyHorizon: '#a8d0ea',
     cloudCount: 5,
     cloudColor: '#ffffff',
     crowdFloorOverrideColor: '#3a6234',
@@ -136,8 +134,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     ambientColor: '#ffd9a8',
     sunTint: '#ffd1a0',
     envPreset: 'sunset',
-    turbidity: 6,
-    rayleigh: 4,
+    skyTop: '#3a4a7a',
+    skyHorizon: '#ff9b58',
     cloudCount: 4,
     cloudColor: '#ffd9b8',
     crowdFloorOverrideColor: '#e6cf95',
@@ -152,8 +150,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     ambientColor: '#eef0f8',
     sunTint: '#ffffff',
     envPreset: 'city',
-    turbidity: 3,
-    rayleigh: 2.5,
+    skyTop: '#5a72a0',
+    skyHorizon: '#b0bccc',
     cloudCount: 6,
     cloudColor: '#dadeea',
     crowdFloorOverrideColor: '#4a4a52',
@@ -168,8 +166,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     ambientColor: '#ffc888',
     sunTint: '#ffd29a',
     envPreset: 'sunset',
-    turbidity: 10,
-    rayleigh: 2,
+    skyTop: '#9c8a5a',
+    skyHorizon: '#f0d089',
     cloudCount: 2,
     cloudColor: '#ffe4c4',
     crowdFloorOverrideColor: '#c89762',
@@ -925,56 +923,97 @@ function DesertDunes() {
   )
 }
 
-// ─── SKY (frustum-culling-proof wrapper) ───────────────────────────────────
-// drei's <Sky> wraps three-stdlib Sky as a primitive. The Sky shader forces
-// gl_Position.z to the far plane so it always renders behind everything,
-// BUT Three.js can still cull the mesh by frustum if its bounding sphere
-// falls outside the view. We disable frustumCulled on mount so the sky is
-// guaranteed to render regardless of camera position or orbit.
-function SkyScenic({
-  sunPosition,
-  turbidity,
-  rayleigh,
+// ─── CUSTOM SKY DOME ───────────────────────────────────────────────────────
+// drei's <Sky> kept rendering as flat white in production despite chasing
+// depth-test, frustum-culling, and distance-prop fixes. Wrote a dedicated
+// inverted sphere with our own shader: vertical gradient + bright sun disc.
+// Always-visible, full control over colors, predictable across drivers.
+const SKY_VERTEX_SHADER = /* glsl */ `
+  varying vec3 vWorldDir;
+  void main() {
+    // Treat the sphere position as a direction from origin (since we render
+    // with side=BackSide, we see the inside of the sphere; the position is
+    // effectively the direction the camera is looking at that fragment).
+    vWorldDir = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const SKY_FRAGMENT_SHADER = /* glsl */ `
+  varying vec3 vWorldDir;
+  uniform vec3 topColor;
+  uniform vec3 horizonColor;
+  uniform vec3 sunDir;
+  uniform vec3 sunColor;
+  uniform float sunSize;
+  uniform float sunSoftness;
+
+  void main() {
+    // Smooth vertical gradient — top vs horizon, with soft transition.
+    float h = clamp(vWorldDir.y, -0.2, 1.0);
+    vec3 sky = mix(horizonColor, topColor, smoothstep(0.0, 0.55, h));
+
+    // Sun disc (bright halo around sun direction)
+    float d = max(dot(vWorldDir, sunDir), 0.0);
+    float sun = smoothstep(1.0 - sunSize - sunSoftness, 1.0 - sunSize * 0.5, d);
+    float core = smoothstep(1.0 - sunSize * 0.4, 1.0, d);
+    sky = mix(sky, sunColor, sun * 0.7);
+    sky = mix(sky, sunColor + vec3(0.4), core);
+
+    gl_FragColor = vec4(sky, 1.0);
+  }
+`
+
+function CustomSkyDome({
+  topColor,
+  horizonColor,
+  sunDir,
+  sunColor,
 }: {
-  sunPosition: [number, number, number]
-  turbidity: number
-  rayleigh: number
+  topColor: string
+  horizonColor: string
+  sunDir: [number, number, number]
+  sunColor: string
 }) {
-  // The actual sky bug: three-stdlib's Sky shader writes gl_Position.z = w
-  // (NDC z = 1, the far plane). The default depthFunc is LessDepth, and the
-  // depth buffer is cleared to 1.0 — so 1 < 1 fails and the sky pixel is
-  // discarded. Setting depthFunc to LessEqualDepth lets the sky pass the
-  // test and actually paint behind everything.
-  const skyRef = useRef<unknown>(null)
+  const meshRef = useRef<THREE.Mesh>(null)
+  // useState lazy init keeps the uniforms object stable across renders
+  // without tripping React's read-ref-during-render lint.
+  const [uniforms] = useState(() => ({
+    topColor: { value: new THREE.Color(topColor) },
+    horizonColor: { value: new THREE.Color(horizonColor) },
+    sunDir: {
+      value: new THREE.Vector3(...sunDir).normalize(),
+    },
+    sunColor: { value: new THREE.Color(sunColor) },
+    sunSize: { value: 0.04 },
+    sunSoftness: { value: 0.08 },
+  }))
+
+  // Live-update uniform values when scenario / sun position changes
   useEffect(() => {
-    const obj = skyRef.current as THREE.Object3D | null
-    if (!obj) return
-    obj.frustumCulled = false
-    obj.traverse?.((child) => {
-      child.frustumCulled = false
-      if (child instanceof THREE.Mesh) {
-        const mat = child.material as THREE.Material | THREE.Material[]
-        const mats = Array.isArray(mat) ? mat : [mat]
-        for (const m of mats) {
-          m.depthFunc = THREE.LessEqualDepth
-          m.depthTest = true
-          // Render on a low order so it paints first
-          ;(child as THREE.Mesh).renderOrder = -1
-        }
-      }
-    })
+    uniforms.topColor.value.set(topColor)
+    uniforms.horizonColor.value.set(horizonColor)
+    uniforms.sunColor.value.set(sunColor)
+    uniforms.sunDir.value.set(sunDir[0], sunDir[1], sunDir[2]).normalize()
+  }, [topColor, horizonColor, sunColor, sunDir, uniforms])
+
+  // Disable frustum culling so the dome is never accidentally culled.
+  useEffect(() => {
+    if (meshRef.current) meshRef.current.frustumCulled = false
   }, [])
+
   return (
-    <Sky
-      // @ts-expect-error — drei's ref type is the Sky impl; we only need Object3D
-      ref={skyRef}
-      distance={450000}
-      sunPosition={sunPosition}
-      turbidity={turbidity}
-      rayleigh={rayleigh}
-      mieCoefficient={0.005}
-      mieDirectionalG={0.8}
-    />
+    <mesh ref={meshRef} scale={400} renderOrder={-2}>
+      <sphereGeometry args={[1, 32, 16]} />
+      <shaderMaterial
+        side={THREE.BackSide}
+        depthWrite={false}
+        depthTest={false}
+        uniforms={uniforms}
+        vertexShader={SKY_VERTEX_SHADER}
+        fragmentShader={SKY_FRAGMENT_SHADER}
+      />
+    </mesh>
   )
 }
 
@@ -1135,14 +1174,14 @@ function StageLighting({
   if (mode === 'outdoor') {
     return (
       <>
-        {/* Sky shader pinned at distance=450000 (drei's recommended scale).
-            Forced frustumCulled=false so it renders regardless of camera
-            position — the Sky shader writes gl_Position.z = far so it
-            always paints behind everything else. */}
-        <SkyScenic
-          sunPosition={sunPos}
-          turbidity={outdoorScenario.turbidity}
-          rayleigh={outdoorScenario.rayleigh}
+        {/* Custom sky dome — gradient top→horizon + sun disc. Replaces
+            drei's procedural Sky which kept rendering blank-white in
+            production. */}
+        <CustomSkyDome
+          topColor={outdoorScenario.skyTop}
+          horizonColor={outdoorScenario.skyHorizon}
+          sunDir={sunPos}
+          sunColor={outdoorScenario.sunTint}
         />
         {/* Volumetric-ish billboard clouds drifting overhead. Skipped in
             desert (clear sky reads more dramatic). */}
