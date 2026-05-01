@@ -106,18 +106,22 @@ interface OutdoorScenarioMeta {
 }
 
 const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
+  // Sky parameters tuned for prominent blue:
+  //   - rayleigh: high values mean strong blue scattering at high angles
+  //   - turbidity: low values mean clear (less haze whitening)
+  // Reference: typical "deep blue sunny day" → turbidity≈2, rayleigh≈3
   {
     id: 'field',
     label: 'Field',
     Icon: Sprout,
-    description: 'Open grass field — Glastonbury / Coachella mainstage',
+    description: 'Open grass field — clear blue sky, classic festival',
     groundColor: '#3a6234',
     groundRoughness: 0.95,
     ambientColor: '#fff4d6',
     sunTint: '#fffaf0',
     envPreset: 'park',
-    turbidity: 4,
-    rayleigh: 1.5,
+    turbidity: 2,
+    rayleigh: 3,
     cloudCount: 5,
     cloudColor: '#ffffff',
     crowdFloorOverrideColor: '#3a6234',
@@ -126,14 +130,14 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     id: 'beach',
     label: 'Beach',
     Icon: Waves,
-    description: 'Beach sunset — warm light, sand floor',
+    description: 'Beach sunset — warm sky, sand floor',
     groundColor: '#e6cf95',
     groundRoughness: 0.8,
     ambientColor: '#ffd9a8',
     sunTint: '#ffd1a0',
     envPreset: 'sunset',
-    turbidity: 8,
-    rayleigh: 5,
+    turbidity: 6,
+    rayleigh: 4,
     cloudCount: 4,
     cloudColor: '#ffd9b8',
     crowdFloorOverrideColor: '#e6cf95',
@@ -149,7 +153,7 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     sunTint: '#ffffff',
     envPreset: 'city',
     turbidity: 3,
-    rayleigh: 1.8,
+    rayleigh: 2.5,
     cloudCount: 6,
     cloudColor: '#dadeea',
     crowdFloorOverrideColor: '#4a4a52',
@@ -164,8 +168,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     ambientColor: '#ffc888',
     sunTint: '#ffd29a',
     envPreset: 'sunset',
-    turbidity: 12,
-    rayleigh: 3,
+    turbidity: 10,
+    rayleigh: 2,
     cloudCount: 2,
     cloudColor: '#ffe4c4',
     crowdFloorOverrideColor: '#c89762',
@@ -900,6 +904,47 @@ function DesertDunes() {
   )
 }
 
+// ─── SKY (frustum-culling-proof wrapper) ───────────────────────────────────
+// drei's <Sky> wraps three-stdlib Sky as a primitive. The Sky shader forces
+// gl_Position.z to the far plane so it always renders behind everything,
+// BUT Three.js can still cull the mesh by frustum if its bounding sphere
+// falls outside the view. We disable frustumCulled on mount so the sky is
+// guaranteed to render regardless of camera position or orbit.
+function SkyScenic({
+  sunPosition,
+  turbidity,
+  rayleigh,
+}: {
+  sunPosition: [number, number, number]
+  turbidity: number
+  rayleigh: number
+}) {
+  // We need to disable frustumCulled on the underlying Sky object after
+  // mount. drei's Sky ref types don't expose Object3D directly so we cast
+  // through unknown rather than dragging in three-stdlib's Sky type.
+  const skyRef = useRef<unknown>(null)
+  useEffect(() => {
+    const obj = skyRef.current as THREE.Object3D | null
+    if (!obj) return
+    obj.frustumCulled = false
+    obj.traverse?.((child) => {
+      child.frustumCulled = false
+    })
+  }, [])
+  return (
+    <Sky
+      // @ts-expect-error — drei's ref type is the Sky impl; we only need Object3D
+      ref={skyRef}
+      distance={450000}
+      sunPosition={sunPosition}
+      turbidity={turbidity}
+      rayleigh={rayleigh}
+      mieCoefficient={0.005}
+      mieDirectionalG={0.8}
+    />
+  )
+}
+
 // ─── SCENE CLOUDS ──────────────────────────────────────────────────────────
 // drei <Clouds> gives volumetric-style billboard clouds. We place a few
 // instances above the stage at varying heights and drift them with a slow
@@ -1057,18 +1102,14 @@ function StageLighting({
   if (mode === 'outdoor') {
     return (
       <>
-        {/* distance=4500 keeps the Sky sphere INSIDE the camera far plane
-            (camera far is 5000 in outdoor — see Canvas config). Default
-            distance=1000 was getting z-clipped against the prior far=200.
-            With distance large enough, the sun disc and atmospheric
-            scattering both render. */}
-        <Sky
-          distance={4500}
+        {/* Sky shader pinned at distance=450000 (drei's recommended scale).
+            Forced frustumCulled=false so it renders regardless of camera
+            position — the Sky shader writes gl_Position.z = far so it
+            always paints behind everything else. */}
+        <SkyScenic
           sunPosition={sunPos}
           turbidity={outdoorScenario.turbidity}
           rayleigh={outdoorScenario.rayleigh}
-          mieCoefficient={0.005}
-          mieDirectionalG={0.8}
         />
         {/* Volumetric-ish billboard clouds drifting overhead. Skipped in
             desert (clear sky reads more dramatic). */}
