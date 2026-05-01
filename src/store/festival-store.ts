@@ -220,12 +220,20 @@ export const useFestivalStore = create<FestivalState & FestivalActions>()(
 
     // -- Stage elements --
     addStageElement: (type) => {
+      // Default spawn height varies per element type:
+      //   speaker (line array): hangs from the truss, anchor near the top
+      //   light (truss-mounted rig): also lives up high
+      //   everything else: floor-level, random small lift
+      const defaultY =
+        type === 'speaker' ? 6.5
+        : type === 'light' ? 7.5
+        : Math.random() * 0.5;
       const element: StageElement = {
         id: crypto.randomUUID(),
         type,
         position: [
           (Math.random() - 0.5) * 6, // x: roughly -3 to 3
-          Math.random() * 3,          // y: 0 to 3 (height)
+          defaultY,
           (Math.random() - 0.5) * 4,  // z: roughly -2 to 2
         ],
         rotation: [0, 0, 0],

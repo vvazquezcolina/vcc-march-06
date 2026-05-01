@@ -17,15 +17,20 @@ export interface StagePreset {
   elements: ElementSpec[]
 }
 
+// Modern festival/concert design conventions baked in:
+//   - Speakers (line arrays) hang from the truss (y ≈ 7), splayed slightly
+//     outward toward the audience.
+//   - Lighting rigs hang on the same plane (y ≈ 7.5).
+//   - Pyrotechnics, fog machines, screens stay floor-level.
 export const STAGE_PRESETS: StagePreset[] = [
   {
     id: 'festival',
     name: 'Festival Mainstage',
-    description: 'Wide layout · big LED, stacks, lasers, pyro flanks',
+    description: 'Wide layout · big LED, flown stacks, lasers, pyro flanks',
     elements: [
       { type: 'screen', position: [0, 0, -3.5], rotation: [0, 0, 0] },
-      { type: 'speaker', position: [-6, 0, 2], rotation: [0, 0.2, 0] },
-      { type: 'speaker', position: [6, 0, 2], rotation: [0, -0.2, 0] },
+      { type: 'speaker', position: [-6, 7, 2], rotation: [0, 0.25, 0] },
+      { type: 'speaker', position: [6, 7, 2], rotation: [0, -0.25, 0] },
       { type: 'laser', position: [-3, 0, -2.5], rotation: [0, 0, 0] },
       { type: 'laser', position: [3, 0, -2.5], rotation: [0, 0, 0] },
       { type: 'pyro', position: [-4.5, 0, 0], rotation: [0, 0, 0] },
@@ -38,11 +43,11 @@ export const STAGE_PRESETS: StagePreset[] = [
   {
     id: 'club',
     name: 'Club Setup',
-    description: 'Tight layout · DJ-focused, lasers + fog, no pyro',
+    description: 'Tight layout · DJ-focused, flown speakers, lasers + fog',
     elements: [
       { type: 'screen', position: [0, 0, -3.5], rotation: [0, 0, 0] },
-      { type: 'speaker', position: [-3.5, 0, 1.5], rotation: [0, 0.3, 0] },
-      { type: 'speaker', position: [3.5, 0, 1.5], rotation: [0, -0.3, 0] },
+      { type: 'speaker', position: [-3.5, 6.5, 1.5], rotation: [0, 0.3, 0] },
+      { type: 'speaker', position: [3.5, 6.5, 1.5], rotation: [0, -0.3, 0] },
       { type: 'laser', position: [-2, 0, -2], rotation: [0, 0, 0] },
       { type: 'laser', position: [2, 0, -2], rotation: [0, 0, 0] },
       { type: 'laser', position: [0, 0, -3], rotation: [0, 0, 0] },
@@ -56,8 +61,8 @@ export const STAGE_PRESETS: StagePreset[] = [
     name: 'Acoustic Setup',
     description: 'Minimal · single rig, soft lights, no FX',
     elements: [
-      { type: 'speaker', position: [-2.5, 0, 1.5], rotation: [0, 0.4, 0] },
-      { type: 'speaker', position: [2.5, 0, 1.5], rotation: [0, -0.4, 0] },
+      { type: 'speaker', position: [-2.5, 6.5, 1.5], rotation: [0, 0.4, 0] },
+      { type: 'speaker', position: [2.5, 6.5, 1.5], rotation: [0, -0.4, 0] },
       { type: 'light', position: [0, 7.5, 1], rotation: [0, 0, 0] },
       { type: 'fog', position: [0, 0, 2], rotation: [0, 0, 0] },
     ],
@@ -65,12 +70,12 @@ export const STAGE_PRESETS: StagePreset[] = [
   {
     id: 'arena',
     name: 'Arena Tour',
-    description: 'Symmetric flanks · tall stacks, dual lasers, dual pyro',
+    description: 'Symmetric flanks · flown line arrays, dual lasers + pyro',
     elements: [
       { type: 'screen', position: [-4, 0, -3.5], rotation: [0, 0.25, 0] },
       { type: 'screen', position: [4, 0, -3.5], rotation: [0, -0.25, 0] },
-      { type: 'speaker', position: [-7, 0, 1], rotation: [0, 0.2, 0] },
-      { type: 'speaker', position: [7, 0, 1], rotation: [0, -0.2, 0] },
+      { type: 'speaker', position: [-7, 7, 1], rotation: [0, 0.25, 0] },
+      { type: 'speaker', position: [7, 7, 1], rotation: [0, -0.25, 0] },
       { type: 'laser', position: [-5, 0, -1], rotation: [0, 0, 0] },
       { type: 'laser', position: [5, 0, -1], rotation: [0, 0, 0] },
       { type: 'pyro', position: [-2, 0, -1.5], rotation: [0, 0, 0] },

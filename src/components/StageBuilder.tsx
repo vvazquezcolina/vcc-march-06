@@ -256,10 +256,10 @@ const ELEMENTS: ElementMeta[] = [
   },
   {
     type: 'speaker',
-    label: 'Speaker Stack',
+    label: 'Line Array',
     Icon: SpeakerIcon,
-    desc: 'Wall of sound',
-    selectionBox: { scale: [1.6, 3.5, 1.1], y: 1.4 },
+    desc: 'Flown line-array (hangs from the truss)',
+    selectionBox: { scale: [1.6, 4.5, 1.1], y: -2 },
   },
   {
     type: 'light',
@@ -571,32 +571,53 @@ function PyroInner() {
 }
 
 function SpeakerStackInner() {
-  // Animation on inner group only — outer group is the TransformControls
-  // target and must not be moved per frame, otherwise drag fights animation.
+  // Modern festival rigging: line array hanging from the truss, not a
+  // floor stack. Anchor sits at y=0 (the wrapper group's origin); the
+  // boxes hang downward in a slight curve (each lower cabinet tilts a few
+  // degrees more outward, like a real flown line array).
   const animRef = useRef<THREE.Group>(null)
   useFrame(({ clock }) => {
     if (animRef.current) {
-      animRef.current.position.y = Math.sin(clock.getElapsedTime() * 15) * 0.008
+      // tiny vertical sway as if the rig swings
+      animRef.current.position.y = Math.sin(clock.getElapsedTime() * 1.5) * 0.01
     }
   })
+  // 7 boxes, top box near anchor, descending
+  const cabinets = [0, 1, 2, 3, 4, 5, 6]
   return (
     <group ref={animRef}>
-      {[0, 0.55, 1.1, 1.65, 2.2, 2.75].map((y, i) => (
-        <group key={i} position={[0, y, 0]}>
-          <mesh>
-            <boxGeometry args={[1.2, 0.5, 0.7]} />
-            <meshStandardMaterial color="#1f1f28" metalness={0.6} roughness={0.3} />
-          </mesh>
-          <mesh position={[0, 0, 0.36]}>
-            <circleGeometry args={[0.18, 16]} />
-            <meshStandardMaterial color="#2a2a34" metalness={0.4} roughness={0.6} />
-          </mesh>
-          <mesh position={[0, 0, 0.36]}>
-            <torusGeometry args={[0.18, 0.02, 8, 16]} />
-            <meshStandardMaterial color="#333" metalness={0.8} roughness={0.2} />
-          </mesh>
-        </group>
-      ))}
+      {/* Rigging strap from anchor up to truss */}
+      <mesh position={[0, 0.6, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 1.2, 6]} />
+        <meshStandardMaterial color="#222" metalness={0.7} roughness={0.4} />
+      </mesh>
+      {/* Top mounting bar */}
+      <mesh position={[0, 0.05, 0]}>
+        <boxGeometry args={[1.4, 0.1, 0.85]} />
+        <meshStandardMaterial color="#3a3a44" metalness={0.85} roughness={0.25} />
+      </mesh>
+      {cabinets.map((i) => {
+        // Each cabinet hangs ~0.55m below the previous, with a small splay
+        // that increases for lower cabinets — a real line-array curve.
+        const y = -0.4 - i * 0.55
+        const tilt = -i * 0.04 // backward tilt (radians)
+        return (
+          <group key={i} position={[0, y, 0]} rotation={[tilt, 0, 0]}>
+            <mesh>
+              <boxGeometry args={[1.2, 0.5, 0.7]} />
+              <meshStandardMaterial color="#1f1f28" metalness={0.6} roughness={0.3} />
+            </mesh>
+            <mesh position={[0, 0, 0.36]}>
+              <circleGeometry args={[0.18, 16]} />
+              <meshStandardMaterial color="#2a2a34" metalness={0.4} roughness={0.6} />
+            </mesh>
+            <mesh position={[0, 0, 0.36]}>
+              <torusGeometry args={[0.18, 0.02, 8, 16]} />
+              <meshStandardMaterial color="#333" metalness={0.8} roughness={0.2} />
+            </mesh>
+          </group>
+        )
+      })}
     </group>
   )
 }
@@ -919,9 +940,11 @@ function SkyScenic({
   turbidity: number
   rayleigh: number
 }) {
-  // We need to disable frustumCulled on the underlying Sky object after
-  // mount. drei's Sky ref types don't expose Object3D directly so we cast
-  // through unknown rather than dragging in three-stdlib's Sky type.
+  // The actual sky bug: three-stdlib's Sky shader writes gl_Position.z = w
+  // (NDC z = 1, the far plane). The default depthFunc is LessDepth, and the
+  // depth buffer is cleared to 1.0 — so 1 < 1 fails and the sky pixel is
+  // discarded. Setting depthFunc to LessEqualDepth lets the sky pass the
+  // test and actually paint behind everything.
   const skyRef = useRef<unknown>(null)
   useEffect(() => {
     const obj = skyRef.current as THREE.Object3D | null
@@ -929,6 +952,16 @@ function SkyScenic({
     obj.frustumCulled = false
     obj.traverse?.((child) => {
       child.frustumCulled = false
+      if (child instanceof THREE.Mesh) {
+        const mat = child.material as THREE.Material | THREE.Material[]
+        const mats = Array.isArray(mat) ? mat : [mat]
+        for (const m of mats) {
+          m.depthFunc = THREE.LessEqualDepth
+          m.depthTest = true
+          // Render on a low order so it paints first
+          ;(child as THREE.Mesh).renderOrder = -1
+        }
+      }
     })
   }, [])
   return (
@@ -1412,15 +1445,26 @@ function SceneContents({
               : ['#0a0015', 25, 60]
         }
       />
-      {/* Solid background for studio + indoor only. In outdoor the <Sky>
-          shader paints the horizon procedurally — overriding it with a
-          color was hiding the sky and the sun disc. */}
-      {sceneMode !== 'outdoor' && (
-        <color
-          attach="background"
-          args={[sceneMode === 'studio' ? '#0e0f18' : '#020208']}
-        />
-      )}
+      {/* Background color. In outdoor it acts as a fallback for the Sky
+          shader (with depth test now fixed it should always show, but a
+          scenario-tinted bg means a frustum edge or paused frame is never
+          flat white). Sky shader still paints over this. */}
+      <color
+        attach="background"
+        args={[
+          sceneMode === 'studio'
+            ? '#0e0f18'
+            : sceneMode === 'outdoor'
+              ? outdoorScenarioId === 'desert'
+                ? '#d4a060'
+                : outdoorScenarioId === 'beach'
+                  ? '#ffb78a'
+                  : outdoorScenarioId === 'stadium'
+                    ? '#7a8aa6'
+                    : '#5fa8dc'
+              : '#020208',
+        ]}
+      />
       <StageLighting
         mode={sceneMode}
         studioBrightness={studioBrightness}
