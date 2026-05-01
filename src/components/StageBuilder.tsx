@@ -43,6 +43,8 @@ import {
   Sprout,
   Ticket,
   Mountain,
+  Maximize,
+  Minimize,
   type LucideIcon,
 } from 'lucide-react'
 import { useFestivalStore } from '@/store/festival-store'
@@ -1699,6 +1701,47 @@ export default function StageBuilder() {
   // Mobile toolbar drawer — hidden by default below lg, slides in on demand
   const [toolbarOpen, setToolbarOpen] = useState(false)
 
+  // Fullscreen — targets the canvas wrapper so the toolbar stays out of
+  // the immersive view. Browser handles Esc to exit.
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = canvasWrapRef.current
+    if (!el) return
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+      } else {
+        await el.requestFullscreen()
+      }
+    } catch (err) {
+      console.warn('[StageBuilder] fullscreen toggle failed:', err)
+    }
+  }, [])
+
+  // Keyboard shortcut: F toggles fullscreen (ignored when typing in inputs)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'f' && e.key !== 'F') return
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) {
+        return
+      }
+      e.preventDefault()
+      toggleFullscreen()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleFullscreen])
+
   // Save/Load designs + share-link state. Lazy useState initializer reads
   // localStorage once on first render — avoids a set-state-in-effect cascade.
   const [designName, setDesignName] = useState('')
@@ -2212,7 +2255,20 @@ export default function StageBuilder() {
       </div>
 
       {/* ── 3D Canvas (error-bounded) ── */}
-      <div className="flex-1 relative bg-black">
+      <div ref={canvasWrapRef} className="flex-1 relative bg-black">
+        {/* Fullscreen toggle — top-right, like YouTube. Press F to toggle. */}
+        <button
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          title={isFullscreen ? 'Exit fullscreen (F · Esc)' : 'Fullscreen (F)'}
+          className="absolute top-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-md bg-black/55 backdrop-blur border border-white/15 text-white/80 hover:bg-black/85 hover:border-white/30 transition-colors"
+        >
+          {isFullscreen ? (
+            <Minimize className="h-4 w-4" strokeWidth={1.75} />
+          ) : (
+            <Maximize className="h-4 w-4" strokeWidth={1.75} />
+          )}
+        </button>
         <StageErrorBoundary>
           <Canvas
             shadows
