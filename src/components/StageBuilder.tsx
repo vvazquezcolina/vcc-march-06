@@ -43,6 +43,8 @@ import type { StageElement } from '@/types/festival'
 import { STAGE_PRESETS } from '@/lib/stage-presets'
 import { StageErrorBoundary } from './StageErrorBoundary'
 import { Crowd } from './Crowd'
+import { AudioControls } from './AudioControls'
+import { audioEngine } from '@/lib/audio-engine'
 import {
   listSavedDesigns,
   saveDesign,
@@ -169,8 +171,10 @@ function GlowRing({
   useFrame(({ clock }) => {
     if (ref.current) {
       const mat = ref.current.material as THREE.MeshStandardMaterial
+      // Bass kicks the rings up to +4 emissive when audio is playing
+      const bass = audioEngine.bands().bass
       mat.emissiveIntensity =
-        1.5 + Math.sin(clock.getElapsedTime() * speed) * 0.8
+        1.5 + Math.sin(clock.getElapsedTime() * speed) * 0.8 + bass * 4
     }
   })
   return (
@@ -331,7 +335,10 @@ function LaserInner() {
   const ref = useRef<THREE.Group>(null)
   useFrame(({ clock }) => {
     if (ref.current) {
-      ref.current.rotation.y = Math.sin(clock.getElapsedTime() * 1.5) * 0.6
+      // Mid frequencies modulate sweep speed (1.5× → up to ~5×)
+      const mid = audioEngine.bands().mid
+      const speed = 1.5 + mid * 3.5
+      ref.current.rotation.y = Math.sin(clock.getElapsedTime() * speed) * 0.6
     }
   })
   return (
@@ -392,12 +399,15 @@ function PyroInner() {
   const flameRefs = useRef<THREE.Mesh[]>([])
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime()
+    // Treble drives the flame surge — sharp transients sound like ignition
+    const treble = audioEngine.bands().treble
+    const surge = 1 + treble * 2 // up to 3× scale on a hit
     flameRefs.current.forEach((mesh, i) => {
       if (mesh) {
-        const s = 1 + Math.sin(t * 10 + i * 2) * 0.4
-        mesh.scale.set(s, 1 + Math.sin(t * 8 + i) * 0.6, s)
+        const s = (1 + Math.sin(t * 10 + i * 2) * 0.4) * surge
+        mesh.scale.set(s, (1 + Math.sin(t * 8 + i) * 0.6) * surge, s)
         const mat = mesh.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = 4 + Math.sin(t * 12 + i * 3) * 3
+        mat.emissiveIntensity = 4 + Math.sin(t * 12 + i * 3) * 3 + treble * 6
       }
     })
   })
@@ -664,10 +674,13 @@ function StageLighting({
   useFrame(({ clock }) => {
     if (animatedRef.current) {
       const t = clock.getElapsedTime()
+      // Bass adds a punchy intensity boost so the colored washes "kick" with
+      // the kick drum. Caps at +250% to avoid blowing the tone-mapper.
+      const bassBoost = 1 + audioEngine.bands().bass * 2.5
       animatedRef.current.children.forEach((light, i) => {
         if (light instanceof THREE.SpotLight) {
           light.intensity =
-            (15 + Math.sin(t * 2 + i * 1.5) * 8) * washMultiplier
+            (15 + Math.sin(t * 2 + i * 1.5) * 8) * washMultiplier * bassBoost
         }
       })
     }
@@ -1384,6 +1397,10 @@ export default function StageBuilder() {
           display={crowdDensity === 0 ? 'off' : `${crowdDensity}`}
           onChange={setCrowdDensity}
         />
+
+        <div className="border-t border-white/[0.06] my-2" />
+
+        <AudioControls />
 
         <div className="border-t border-white/[0.06] my-2" />
 
