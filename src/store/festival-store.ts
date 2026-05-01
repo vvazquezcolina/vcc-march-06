@@ -149,6 +149,10 @@ interface FestivalActions {
   addStageElement: (type: StageElement['type']) => void;
   removeStageElement: (id: string) => void;
   updateStageElement: (id: string, updates: Partial<StageElement>) => void;
+  /** Replace the entire stage with a list of element specs (preset / restore). */
+  setStageElements: (specs: Omit<StageElement, 'id'>[]) => void;
+  /** Wipe the stage to empty. */
+  clearStageElements: () => void;
   setVenue: (venue: Venue) => void;
   setStageSnapshot: (dataUrl: string) => void;
   setFlyerUrl: (url: string) => void;
@@ -240,6 +244,16 @@ export const useFestivalStore = create<FestivalState & FestivalActions>()(
           el.id === id ? { ...el, ...updates } : el,
         ),
       })),
+
+    setStageElements: (specs) =>
+      set({
+        stageElements: specs.map((spec) => ({
+          ...spec,
+          id: crypto.randomUUID(),
+        })),
+      }),
+
+    clearStageElements: () => set({ stageElements: [] }),
 
     // -- Venue --
     setVenue: (venue) => set({ selectedVenue: venue }),

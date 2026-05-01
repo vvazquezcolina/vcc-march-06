@@ -9,6 +9,8 @@ import {
   Sky,
   MeshReflectorMaterial,
   TransformControls,
+  Stats,
+  useNormalTexture,
 } from '@react-three/drei'
 import * as THREE from 'three'
 import {
@@ -25,10 +27,17 @@ import {
   Camera,
   Sun,
   Building2,
+  Eye,
+  Box,
+  Activity,
+  Layers,
   type LucideIcon,
 } from 'lucide-react'
 import { useFestivalStore } from '@/store/festival-store'
 import type { StageElement } from '@/types/festival'
+import { STAGE_PRESETS } from '@/lib/stage-presets'
+import { StageErrorBoundary } from './StageErrorBoundary'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 
 // ─── ELEMENT TYPE METADATA ─────────────────────────────────────────────────
 // Each element has: a Lucide icon for the toolbar, a label, a description,
@@ -49,6 +58,26 @@ const LIGHT_RANGES = {
   sunIntensity: { min: 0.2, max: 5.0, step: 0.1 },
   sunElevation: { min: 5, max: 88, step: 1 },
 } as const
+
+// ─── CAMERA PRESETS ────────────────────────────────────────────────────────
+// Each preset names a "shot" — a camera position + look-at target. Click to
+// transition smoothly (cubic ease-out, ~1.4s) from the current camera state.
+interface CameraPreset {
+  id: string
+  label: string
+  Icon: LucideIcon
+  position: [number, number, number]
+  target: [number, number, number]
+}
+
+const CAMERA_PRESETS: CameraPreset[] = [
+  { id: 'front',  label: 'Front',  Icon: Camera, position: [0, 6, 14],   target: [0, 3, 0] },
+  { id: 'hero',   label: '3/4',    Icon: Box,    position: [11, 7, 11],  target: [0, 3, 0] },
+  { id: 'top',    label: 'Top',    Icon: Layers, position: [0, 22, 0.1], target: [0, 0, 0] },
+  { id: 'pov',    label: 'POV',    Icon: Eye,    position: [0, 1.7, 9],  target: [0, 3, -2] },
+]
+
+const CAMERA_TRANSITION_MS = 1400
 
 interface ElementMeta {
   type: StageElement['type']
@@ -135,20 +164,30 @@ function GlowRing({
 
 // ─── MAINSTAGE STRUCTURE ───────────────────────────────────────────────────
 function Mainstage() {
+  // drei's normal-map library — gives us a real PBR surface without shipping
+  // texture files. Index 3 is a fine-grain noise that reads as polished
+  // concrete under stage lights.
+  const [normalMap] = useNormalTexture(3, {
+    repeat: [4, 4],
+    anisotropy: 8,
+  })
+
   return (
     <group>
-      {/* Stage floor (reflective) */}
+      {/* Stage floor — reflective concrete with a real normal map */}
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[16, 10]} />
         <MeshReflectorMaterial
-          mirror={0.4}
+          mirror={0.35}
           blur={[300, 100]}
           resolution={1024}
-          mixBlur={1}
-          mixStrength={0.6}
-          color="#111118"
-          metalness={0.8}
-          roughness={0.4}
+          mixBlur={1.2}
+          mixStrength={0.7}
+          color="#0e0e15"
+          metalness={0.5}
+          roughness={0.55}
+          normalMap={normalMap}
+          normalScale={new THREE.Vector2(0.4, 0.4)}
         />
       </mesh>
 
@@ -695,24 +734,106 @@ function StageLighting({
 }
 
 // ─── SCREENSHOT HELPER ─────────────────────────────────────────────────────
+// Two captures live here:
+//  - capture(): raw PNG of the canvas, written into the festival store for
+//    the downstream flyer pipeline (no overlay so the AI flyer step gets a
+//    clean input).
+//  - downloadFramed(): same render, but composited with a gradient + title
+//    + venue overlay, then offered as a file download in the user's browser.
 function ScreenshotHelper({
-  triggerRef,
+  captureRef,
+  downloadRef,
 }: {
-  triggerRef: React.MutableRefObject<(() => void) | null>
+  captureRef: React.MutableRefObject<(() => void) | null>
+  downloadRef: React.MutableRefObject<(() => void) | null>
 }) {
   const { gl, scene, camera } = useThree()
   const setStageSnapshot = useFestivalStore((s) => s.setStageSnapshot)
-  const trigger = useCallback(() => {
+  const lineup = useFestivalStore((s) => s.lineup)
+  const venue = useFestivalStore((s) => s.selectedVenue)
+
+  const renderRaw = useCallback(() => {
     gl.render(scene, camera)
-    setStageSnapshot(gl.domElement.toDataURL('image/png'))
-  }, [gl, scene, camera, setStageSnapshot])
-  // Mutating refs belongs in effects, not in the render body.
+    return gl.domElement.toDataURL('image/png')
+  }, [gl, scene, camera])
+
+  const capture = useCallback(() => {
+    setStageSnapshot(renderRaw())
+  }, [renderRaw, setStageSnapshot])
+
+  const downloadFramed = useCallback(async () => {
+    const raw = renderRaw()
+    const img = new Image()
+    img.src = raw
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = () => reject(new Error('Failed to load captured image'))
+    })
+
+    const c = document.createElement('canvas')
+    c.width = img.width
+    c.height = img.height
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(img, 0, 0)
+
+    // Bottom darkening gradient for legibility
+    const grad = ctx.createLinearGradient(0, c.height * 0.55, 0, c.height)
+    grad.addColorStop(0, 'rgba(0,0,0,0)')
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.55)')
+    grad.addColorStop(1, 'rgba(0,0,0,0.92)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, c.width, c.height)
+
+    // Title — use the top headliner if available, else a placeholder
+    const title = (lineup?.headliners[0]?.name ?? 'YOUR FESTIVAL').toUpperCase()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `900 ${Math.round(c.width * 0.058)}px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif`
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(title, Math.round(c.width * 0.05), c.height - Math.round(c.width * 0.055))
+
+    // Subtitle: venue + date
+    const sub = [
+      venue?.name,
+      new Date().toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.font = `500 ${Math.round(c.width * 0.022)}px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif`
+    ctx.fillText(sub, Math.round(c.width * 0.05), c.height - Math.round(c.width * 0.022))
+
+    // Brand mark (top right)
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
+    ctx.font = `600 ${Math.round(c.width * 0.014)}px -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif`
+    ctx.textAlign = 'right'
+    ctx.fillText(
+      'MAINSTAGE BUILDER',
+      c.width - Math.round(c.width * 0.025),
+      Math.round(c.width * 0.035),
+    )
+    ctx.textAlign = 'left'
+
+    // Trigger download
+    const a = document.createElement('a')
+    a.href = c.toDataURL('image/png')
+    a.download = `mainstage-${Date.now()}.png`
+    a.click()
+  }, [renderRaw, lineup, venue])
+
   useEffect(() => {
-    triggerRef.current = trigger
+    captureRef.current = capture
+    downloadRef.current = downloadFramed
     return () => {
-      triggerRef.current = null
+      captureRef.current = null
+      downloadRef.current = null
     }
-  }, [trigger, triggerRef])
+  }, [capture, downloadFramed, captureRef, downloadRef])
+
   return null
 }
 
@@ -725,7 +846,10 @@ function SceneContents({
   indoorBrightness,
   sunIntensity,
   sunElevation,
-  screenshotRef,
+  showStats,
+  captureRef,
+  downloadRef,
+  cameraTriggerRef,
 }: {
   selectedId: string | null
   onSelect: (id: string | null) => void
@@ -734,13 +858,64 @@ function SceneContents({
   indoorBrightness: number
   sunIntensity: number
   sunElevation: number
-  screenshotRef: React.MutableRefObject<(() => void) | null>
+  showStats: boolean
+  captureRef: React.MutableRefObject<(() => void) | null>
+  downloadRef: React.MutableRefObject<(() => void) | null>
+  cameraTriggerRef: React.MutableRefObject<((preset: CameraPreset) => void) | null>
 }) {
   const stageElements = useFestivalStore((s) => s.stageElements)
+  const { camera } = useThree()
+  const orbitRef = useRef<OrbitControlsImpl | null>(null)
+  const transitionRef = useRef<{
+    startMs: number
+    fromPos: THREE.Vector3
+    fromTarget: THREE.Vector3
+    toPos: THREE.Vector3
+    toTarget: THREE.Vector3
+  } | null>(null)
+
+  // Imperative trigger that the toolbar buttons call. We snapshot the
+  // current camera + orbit target as "from" and lerp to the preset over
+  // CAMERA_TRANSITION_MS with cubic ease-out.
+  const triggerCamera = useCallback(
+    (preset: CameraPreset) => {
+      const orbit = orbitRef.current
+      if (!orbit) return
+      transitionRef.current = {
+        startMs: Date.now(),
+        fromPos: camera.position.clone(),
+        fromTarget: orbit.target.clone(),
+        toPos: new THREE.Vector3(...preset.position),
+        toTarget: new THREE.Vector3(...preset.target),
+      }
+    },
+    [camera],
+  )
+
+  useEffect(() => {
+    cameraTriggerRef.current = triggerCamera
+    return () => {
+      cameraTriggerRef.current = null
+    }
+  }, [triggerCamera, cameraTriggerRef])
+
+  useFrame(() => {
+    const tr = transitionRef.current
+    if (!tr) return
+    const t = Math.min((Date.now() - tr.startMs) / CAMERA_TRANSITION_MS, 1)
+    const eased = 1 - Math.pow(1 - t, 3) // ease-out cubic
+    camera.position.lerpVectors(tr.fromPos, tr.toPos, eased)
+    if (orbitRef.current) {
+      orbitRef.current.target.lerpVectors(tr.fromTarget, tr.toTarget, eased)
+      orbitRef.current.update()
+    }
+    if (t >= 1) transitionRef.current = null
+  })
 
   return (
     <>
       <OrbitControls
+        ref={orbitRef}
         makeDefault
         minPolarAngle={0.1}
         maxPolarAngle={Math.PI / 2.1}
@@ -791,7 +966,8 @@ function SceneContents({
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      <ScreenshotHelper triggerRef={screenshotRef} />
+      <ScreenshotHelper captureRef={captureRef} downloadRef={downloadRef} />
+      {showStats && <Stats className="!left-[unset] !right-3 !top-3" />}
     </>
   )
 }
@@ -929,31 +1105,35 @@ export default function StageBuilder() {
   const [sunIntensity, setSunIntensity] = useState<number>(LIGHT_DEFAULTS.sunIntensity)
   const [sunElevation, setSunElevation] = useState<number>(LIGHT_DEFAULTS.sunElevation)
 
-  const screenshotRef = useRef<(() => void) | null>(null)
+  // Stats overlay (FPS / draw calls / mem) — off by default to keep the
+  // canvas clean on first impression.
+  const [showStats, setShowStats] = useState(false)
 
-  const addStageElement = useFestivalStore((s) => s.addStageElement)
+  // Imperative triggers — written by the in-Canvas helpers, called by the
+  // toolbar buttons. Refs (not state) because we don't need re-renders when
+  // they change.
+  const captureRef = useRef<(() => void) | null>(null)
+  const downloadRef = useRef<(() => void) | null>(null)
+  const cameraTriggerRef = useRef<((preset: CameraPreset) => void) | null>(null)
+
   const removeStageElement = useFestivalStore((s) => s.removeStageElement)
   const stageElements = useFestivalStore((s) => s.stageElements)
+  const setStageElements = useFestivalStore((s) => s.setStageElements)
+  const addStageElement = useFestivalStore((s) => s.addStageElement)
   const setActiveTab = useFestivalStore((s) => s.setActiveTab)
   const customNotes = useFestivalStore((s) => s.customNotes)
   const setCustomNote = useFestivalStore((s) => s.setCustomNote)
   const hasInitialized = useRef(false)
 
-  // Auto-populate with starter elements on first visit
+  // First-visit boot: load the Festival Mainstage preset so users land on a
+  // pre-built scene rather than an empty floor.
   useEffect(() => {
     if (!hasInitialized.current && stageElements.length === 0) {
       hasInitialized.current = true
-      addStageElement('screen')
-      addStageElement('laser')
-      addStageElement('laser')
-      addStageElement('pyro')
-      addStageElement('pyro')
-      addStageElement('speaker')
-      addStageElement('speaker')
-      addStageElement('light')
-      addStageElement('fog')
+      const festival = STAGE_PRESETS[0]
+      if (festival) setStageElements(festival.elements)
     }
-  }, [addStageElement, stageElements.length])
+  }, [stageElements.length, setStageElements])
 
   const selectedElement = stageElements.find((el) => el.id === selectedId)
   const selectedMeta = selectedElement
@@ -963,7 +1143,66 @@ export default function StageBuilder() {
   return (
     <div className="relative w-full h-full min-h-[550px] flex rounded-xl overflow-hidden">
       {/* ── Toolbar ── */}
-      <div className="w-56 shrink-0 bg-gradient-to-b from-[#12101f] to-[#0a0812] border-r border-white/[0.06] flex flex-col p-3 gap-1.5 overflow-y-auto z-10">
+      <div className="w-60 shrink-0 bg-gradient-to-b from-[#12101f] to-[#0a0812] border-r border-white/[0.06] flex flex-col p-3 gap-1.5 overflow-y-auto z-10">
+        {/* ── Stage presets ── */}
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">
+            Preset
+          </h2>
+          <button
+            onClick={() => setShowStats((s) => !s)}
+            title="Toggle FPS / draw-call overlay"
+            className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-mono tracking-wider transition-colors ${
+              showStats
+                ? 'bg-emerald-500/20 text-emerald-300'
+                : 'text-white/30 hover:text-white/60'
+            }`}
+          >
+            <Activity className="h-2.5 w-2.5" strokeWidth={2.25} />
+            STATS
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 mb-2">
+          {STAGE_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => {
+                setStageElements(preset.elements)
+                setSelectedId(null)
+              }}
+              title={preset.description}
+              className="px-2 py-1.5 rounded-md bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 text-[11px] font-medium text-white/70 hover:text-white text-left transition-colors cursor-pointer truncate"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="border-t border-white/[0.06] my-1" />
+
+        {/* ── Camera ── */}
+        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
+          Camera
+        </h2>
+        <div className="grid grid-cols-4 gap-1.5 mb-2">
+          {CAMERA_PRESETS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => {
+                const preset = CAMERA_PRESETS.find((p) => p.id === id)
+                if (preset) cameraTriggerRef.current?.(preset)
+              }}
+              title={`Move camera to ${label}`}
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-md bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 text-[10px] font-medium text-white/60 hover:text-white transition-colors cursor-pointer"
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="border-t border-white/[0.06] my-1" />
+
         <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
           Add Elements
         </h2>
@@ -1130,43 +1369,57 @@ export default function StageBuilder() {
           />
         </div>
 
-        <button
-          onClick={() => {
-            screenshotRef.current?.()
-            setActiveTab(2)
-          }}
-          className="w-full px-3 py-2.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.12] text-white text-sm font-semibold transition-all shadow-lg shadow-white/[0.06] cursor-pointer flex items-center justify-center gap-2"
-        >
-          <Camera className="h-4 w-4" strokeWidth={1.75} />
-          Capture Stage
-        </button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            onClick={() => downloadRef.current?.()}
+            title="Download a framed PNG of your stage"
+            className="px-2 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 text-white/70 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Camera className="h-3.5 w-3.5" strokeWidth={1.75} />
+            PNG
+          </button>
+          <button
+            onClick={() => {
+              captureRef.current?.()
+              setActiveTab(2)
+            }}
+            className="px-2 py-2 rounded-lg bg-white/[0.12] hover:bg-white/[0.18] text-white text-xs font-semibold transition-all shadow-lg shadow-white/[0.06] cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            Next →
+          </button>
+        </div>
       </div>
 
-      {/* ── 3D Canvas ── */}
+      {/* ── 3D Canvas (error-bounded) ── */}
       <div className="flex-1 relative bg-black">
-        <Canvas
-          shadows
-          gl={{
-            preserveDrawingBuffer: true,
-            antialias: true,
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1,
-          }}
-          camera={{ position: [0, 6, 14], fov: 55, near: 0.1, far: 200 }}
-        >
-          <SceneContents
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            transformMode={transformMode}
-            sceneMode={sceneMode}
-            indoorBrightness={indoorBrightness}
-            sunIntensity={sunIntensity}
-            sunElevation={sunElevation}
-            screenshotRef={screenshotRef}
-          />
-        </Canvas>
+        <StageErrorBoundary>
+          <Canvas
+            shadows
+            gl={{
+              preserveDrawingBuffer: true,
+              antialias: true,
+              toneMapping: THREE.ACESFilmicToneMapping,
+              toneMappingExposure: 1,
+            }}
+            camera={{ position: [0, 6, 14], fov: 55, near: 0.1, far: 200 }}
+          >
+            <SceneContents
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              transformMode={transformMode}
+              sceneMode={sceneMode}
+              indoorBrightness={indoorBrightness}
+              sunIntensity={sunIntensity}
+              sunElevation={sunElevation}
+              showStats={showStats}
+              captureRef={captureRef}
+              downloadRef={downloadRef}
+              cameraTriggerRef={cameraTriggerRef}
+            />
+          </Canvas>
+        </StageErrorBoundary>
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-gray-600 pointer-events-none select-none">
-          Click element · Drag gizmo to {transformMode} · Scroll to zoom
+          Click element · Drag gizmo to {transformMode} · Scroll to zoom · Use Camera presets for shots
         </div>
       </div>
     </div>
