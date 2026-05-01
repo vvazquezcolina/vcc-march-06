@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Music, Upload, Play, Pause, X } from 'lucide-react'
+import { Music, Upload, Play, Pause, X, Sparkles } from 'lucide-react'
 import { audioEngine, type FrequencyBands } from '@/lib/audio-engine'
 
 /**
@@ -13,15 +13,17 @@ export function AudioControls() {
   const [hasFile, setHasFile] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
+  const [demoActive, setDemoActive] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Subscribe to engine events for play/pause + load reactivity
+  // Subscribe to engine events for play/pause + load + demo state
   useEffect(() => {
     const sync = () => {
       setHasFile(audioEngine.hasFile())
       setFileName(audioEngine.fileName())
       setPlaying(audioEngine.isPlaying())
+      setDemoActive(audioEngine.isDemoActive())
     }
     sync()
     return audioEngine.subscribe(sync)
@@ -47,15 +49,17 @@ export function AudioControls() {
     await audioEngine.togglePlay()
   }, [])
 
+  const handleToggleDemo = useCallback(() => {
+    audioEngine.toggleDemo()
+  }, [])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">
           Audio
         </h2>
-        {hasFile && (
-          <EqBars />
-        )}
+        {(hasFile || demoActive) && <EqBars />}
       </div>
 
       <input
@@ -66,14 +70,46 @@ export function AudioControls() {
         className="hidden"
       />
 
-      {!hasFile ? (
-        <button
-          onClick={() => inputRef.current?.click()}
-          className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/25 px-3 py-2.5 text-xs font-medium text-white/55 hover:text-white/85 transition-colors cursor-pointer"
-        >
-          <Upload className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Drop a track for FX
-        </button>
+      {!hasFile && !demoActive ? (
+        <div className="flex flex-col gap-1.5">
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/25 px-3 py-2.5 text-xs font-medium text-white/55 hover:text-white/85 transition-colors cursor-pointer"
+          >
+            <Upload className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Drop a track for FX
+          </button>
+          <button
+            onClick={handleToggleDemo}
+            aria-label="Use default beat for light show preview"
+            className="w-full flex items-center justify-center gap-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/30 hover:border-emerald-400/50 px-3 py-1.5 text-[11px] font-medium text-emerald-200 transition-colors cursor-pointer"
+          >
+            <Sparkles className="h-3 w-3" strokeWidth={2} />
+            Use default beat
+          </button>
+        </div>
+      ) : demoActive ? (
+        <div className="flex items-center gap-1.5">
+          <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-200">
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col items-start px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-400/25">
+            <span className="text-[10px] uppercase tracking-wider text-emerald-300/80 font-semibold">
+              Demo beat
+            </span>
+            <span className="text-[10px] text-emerald-200/70 truncate">
+              120 BPM · synth bass + hats
+            </span>
+          </div>
+          <button
+            onClick={handleToggleDemo}
+            aria-label="Stop demo beat"
+            title="Stop demo"
+            className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-md bg-white/[0.04] hover:bg-white/[0.10] text-white/40 hover:text-white/80 transition-colors cursor-pointer"
+          >
+            <X className="h-3 w-3" strokeWidth={2} />
+          </button>
+        </div>
       ) : (
         <div className="flex items-center gap-1.5">
           <button

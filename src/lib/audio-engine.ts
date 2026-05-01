@@ -40,6 +40,10 @@ class AudioEngine {
   private freq: Uint8Array<ArrayBuffer> | null = null
   private currentName: string | null = null
   private listeners = new Set<() => void>()
+  // Demo mode: synthesized bands so users can preview the audio-reactive
+  // light show without uploading a track. Mutually exclusive with playback.
+  private demoMode = false
+  private demoStartMs = 0
 
   hasFile(): boolean {
     return !!(this.el?.src)
@@ -113,8 +117,12 @@ class AudioEngine {
   /**
    * Per-frame sampler. Call from useFrame on any component that wants to
    * react. Cheap (one Uint8Array fill + summation).
+   *
+   * In demo mode this returns a synthesized "song" — 120 BPM kick on each
+   * beat, sustained mid wash, hi-hats on the 8ths.
    */
   bands(): FrequencyBands {
+    if (this.demoMode) return this.synthesizeBands()
     if (!this.analyser || !this.freq) {
       return { bass: 0, mid: 0, treble: 0 }
     }
@@ -124,6 +132,55 @@ class AudioEngine {
       bass: averageBins(f, BASS_BINS[0], BASS_BINS[1]),
       mid: averageBins(f, MID_BINS[0], MID_BINS[1]),
       treble: averageBins(f, TREBLE_BINS[0], TREBLE_BINS[1]),
+    }
+  }
+
+  isDemoActive(): boolean {
+    return this.demoMode
+  }
+
+  enableDemo(): void {
+    if (this.demoMode) return
+    // Pause real playback if a file was loaded
+    if (this.el && !this.el.paused) {
+      this.el.pause()
+    }
+    this.demoMode = true
+    this.demoStartMs = Date.now()
+    this.notify()
+  }
+
+  disableDemo(): void {
+    if (!this.demoMode) return
+    this.demoMode = false
+    this.notify()
+  }
+
+  toggleDemo(): void {
+    if (this.demoMode) this.disableDemo()
+    else this.enableDemo()
+  }
+
+  /**
+   * Synthesize a 120 BPM dance beat for the demo:
+   *  - bass kicks on each beat (0.5s period), sharp attack + exp decay
+   *  - mid wash with slow LFO (a held synth pad)
+   *  - treble hits on 8th notes (hi-hats)
+   *  - all clamped to 0..1 so they stack with normal modulators
+   */
+  private synthesizeBands(): FrequencyBands {
+    const t = (Date.now() - this.demoStartMs) / 1000
+    const beat = t * 2 // 120 BPM = 2 beats per second
+    const beatPhase = beat - Math.floor(beat) // 0..1 within beat
+    const bass = Math.max(0, 1 - beatPhase * 4) * 0.85
+    const mid =
+      0.35 + Math.sin(t * 1.7) * 0.15 + Math.sin(t * 3.4) * 0.08
+    const eighthPhase = beat * 2 - Math.floor(beat * 2)
+    const treble = Math.max(0, 0.55 - eighthPhase * 1.6) * 0.7
+    return {
+      bass: clamp01(bass),
+      mid: clamp01(mid),
+      treble: clamp01(treble),
     }
   }
 
@@ -175,6 +232,10 @@ function averageBins(data: Uint8Array, start: number, end: number): number {
   let sum = 0
   for (let i = start; i < end; i++) sum += data[i] ?? 0
   return Math.min(1, sum / ((end - start) * 255))
+}
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n))
 }
 
 // Module-level singleton
