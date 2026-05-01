@@ -7,6 +7,8 @@ import {
   Text,
   Stars,
   Sky,
+  Cloud,
+  Clouds,
   Environment,
   MeshReflectorMaterial,
   TransformControls,
@@ -96,6 +98,9 @@ interface OutdoorScenarioMeta {
   // Sky tweaks
   turbidity: number
   rayleigh: number
+  // Cloud rendering — count and color tint per scenario
+  cloudCount: number
+  cloudColor: string
   // Whether to render the small CrowdArea floor patch (or let venue ground take over)
   crowdFloorOverrideColor?: string
 }
@@ -113,6 +118,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     envPreset: 'park',
     turbidity: 4,
     rayleigh: 1.5,
+    cloudCount: 5,
+    cloudColor: '#ffffff',
     crowdFloorOverrideColor: '#3a6234',
   },
   {
@@ -127,6 +134,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     envPreset: 'sunset',
     turbidity: 8,
     rayleigh: 5,
+    cloudCount: 4,
+    cloudColor: '#ffd9b8',
     crowdFloorOverrideColor: '#e6cf95',
   },
   {
@@ -141,6 +150,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     envPreset: 'city',
     turbidity: 3,
     rayleigh: 1.8,
+    cloudCount: 6,
+    cloudColor: '#dadeea',
     crowdFloorOverrideColor: '#4a4a52',
   },
   {
@@ -155,6 +166,8 @@ const OUTDOOR_SCENARIOS: OutdoorScenarioMeta[] = [
     envPreset: 'sunset',
     turbidity: 12,
     rayleigh: 3,
+    cloudCount: 2,
+    cloudColor: '#ffe4c4',
     crowdFloorOverrideColor: '#c89762',
   },
 ]
@@ -191,14 +204,18 @@ interface CameraPreset {
   target: [number, number, number]
 }
 
+// Camera framings. Targets aim a touch high (y=4-5 instead of y=3) so the
+// upper third of the frame includes sky / overhead structure even when
+// camera is at audience-eye level. Useful in outdoor mode where sky is the
+// main scenic element.
 const CAMERA_PRESETS: CameraPreset[] = [
-  { id: 'front',  label: 'Front',  Icon: Camera, position: [0, 6, 14],     target: [0, 3, 0] },
-  { id: 'hero',   label: '3/4',    Icon: Box,    position: [11, 7, 11],    target: [0, 3, 0] },
+  { id: 'front',  label: 'Front',  Icon: Camera, position: [0, 5, 16],     target: [0, 4, 0] },
+  { id: 'hero',   label: '3/4',    Icon: Box,    position: [12, 6, 12],    target: [0, 4, 0] },
   { id: 'top',    label: 'Top',    Icon: Layers, position: [0, 22, 0.1],   target: [0, 0, 0] },
-  // Audience side: standing in the crowd looking at the stage
-  { id: 'crowd',  label: 'Crowd',  Icon: Users,  position: [0, 1.7, 9],    target: [0, 3, -2] },
-  // Performer side: standing on the stage looking at the audience
-  { id: 'stage',  label: 'Stage',  Icon: Mic2,   position: [0, 1.6, -1.2], target: [0, 1.7, 9] },
+  // Audience side: standing in the crowd looking up at the stage + sky
+  { id: 'crowd',  label: 'Crowd',  Icon: Users,  position: [0, 1.6, 11],   target: [0, 5, -2] },
+  // Performer side: standing on the stage looking at the audience + horizon
+  { id: 'stage',  label: 'Stage',  Icon: Mic2,   position: [0, 1.7, -1.2], target: [0, 3, 12] },
 ]
 
 const CAMERA_TRANSITION_MS = 1400
@@ -883,6 +900,57 @@ function DesertDunes() {
   )
 }
 
+// ─── SCENE CLOUDS ──────────────────────────────────────────────────────────
+// drei <Clouds> gives volumetric-style billboard clouds. We place a few
+// instances above the stage at varying heights and drift them with a slow
+// useFrame translate so the sky has motion.
+function SceneClouds({ count, color }: { count: number; color: string }) {
+  const groupRef = useRef<THREE.Group>(null)
+  const [seeds] = useState<number[]>(() =>
+    Array.from({ length: count }, () => Math.random() * 1000),
+  )
+
+  useFrame(({ clock }) => {
+    if (!groupRef.current) return
+    // Slow lateral drift so clouds visibly move without distracting
+    const t = clock.getElapsedTime() * 0.6
+    groupRef.current.children.forEach((child, i) => {
+      child.position.x = ((seeds[i] ?? 0) + t * (1 + (i % 3) * 0.3)) % 80 - 40
+    })
+  })
+
+  return (
+    <Clouds
+      ref={groupRef}
+      material={THREE.MeshLambertMaterial}
+      // Render lower than the Sky shader, higher than ground geometry.
+      // Don't write to depth so the procedural sky still reads behind
+      // any cloud edges.
+      limit={count}
+    >
+      {seeds.map((seed, i) => (
+        <Cloud
+          key={i}
+          seed={seed}
+          bounds={[14, 3, 14]}
+          volume={6 + (i % 3) * 2}
+          color={color}
+          opacity={0.65}
+          fade={120}
+          growth={4}
+          speed={0.15}
+          segments={28}
+          position={[
+            (i - count / 2) * 14,
+            18 + (i % 2) * 4,
+            -25 + (i % 3) * 12,
+          ]}
+        />
+      ))}
+    </Clouds>
+  )
+}
+
 // ─── STAGE LIGHTING ────────────────────────────────────────────────────────
 // Three modes:
 //  - studio:  HDRI environment + bright neutral key + soft fills, NO colored
@@ -989,13 +1057,27 @@ function StageLighting({
   if (mode === 'outdoor') {
     return (
       <>
+        {/* distance=4500 keeps the Sky sphere INSIDE the camera far plane
+            (camera far is 5000 in outdoor — see Canvas config). Default
+            distance=1000 was getting z-clipped against the prior far=200.
+            With distance large enough, the sun disc and atmospheric
+            scattering both render. */}
         <Sky
+          distance={4500}
           sunPosition={sunPos}
           turbidity={outdoorScenario.turbidity}
           rayleigh={outdoorScenario.rayleigh}
           mieCoefficient={0.005}
           mieDirectionalG={0.8}
         />
+        {/* Volumetric-ish billboard clouds drifting overhead. Skipped in
+            desert (clear sky reads more dramatic). */}
+        {outdoorScenario.cloudCount > 0 && (
+          <SceneClouds
+            count={outdoorScenario.cloudCount}
+            color={outdoorScenario.cloudColor}
+          />
+        )}
         {/* IBL via scenario-appropriate HDRI (no background — Sky owns that) */}
         <Environment
           preset={outdoorScenario.envPreset}
@@ -1289,22 +1371,15 @@ function SceneContents({
               : ['#0a0015', 25, 60]
         }
       />
-      <color
-        attach="background"
-        args={[
-          sceneMode === 'studio'
-            ? '#0e0f18'
-            : sceneMode === 'outdoor'
-              ? outdoorScenarioId === 'desert'
-                ? '#d4a878'
-                : outdoorScenarioId === 'beach'
-                  ? '#f5c89a'
-                  : outdoorScenarioId === 'stadium'
-                    ? '#92a0b8'
-                    : '#7fa3c8'
-              : '#020208',
-        ]}
-      />
+      {/* Solid background for studio + indoor only. In outdoor the <Sky>
+          shader paints the horizon procedurally — overriding it with a
+          color was hiding the sky and the sun disc. */}
+      {sceneMode !== 'outdoor' && (
+        <color
+          attach="background"
+          args={[sceneMode === 'studio' ? '#0e0f18' : '#020208']}
+        />
+      )}
       <StageLighting
         mode={sceneMode}
         studioBrightness={studioBrightness}
@@ -2026,7 +2101,10 @@ export default function StageBuilder() {
               // is the difference between "I can see what I built" and "...?"
               toneMappingExposure: 1.4,
             }}
-            camera={{ position: [0, 6, 14], fov: 55, near: 0.1, far: 200 }}
+            // far=5000 so drei <Sky> (sphere radius ~4500) renders inside the
+            // camera frustum. Previously far=200 clipped the sky entirely,
+            // which is why the user couldn't see it in outdoor mode.
+            camera={{ position: [0, 6, 14], fov: 55, near: 0.1, far: 5000 }}
           >
             <SceneContents
               selectedId={selectedId}
