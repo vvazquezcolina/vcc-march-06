@@ -19,6 +19,15 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
 
+/* Visible keyboard focus ring on all interactive elements. Only triggers
+   for keyboard navigation (focus-visible), not mouse clicks, so the
+   pointer experience stays clean. */
+:where(button, [role="button"], a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
 /* Smooth tab transitions */
 .tab-content-enter {
   animation: tabEnter 0.25s ease-out;

@@ -79,6 +79,8 @@ export function AudioControls() {
           <button
             onClick={handleToggle}
             title={playing ? 'Pause' : 'Play'}
+            aria-label={playing ? 'Pause audio' : 'Play audio'}
+            aria-pressed={playing}
             className={`flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer ${
               playing
                 ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200'
@@ -100,6 +102,7 @@ export function AudioControls() {
           <button
             onClick={() => inputRef.current?.click()}
             title="Replace track"
+            aria-label="Replace audio track"
             className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-md bg-white/[0.04] hover:bg-white/[0.10] text-white/40 hover:text-white/80 transition-colors cursor-pointer"
           >
             <X className="h-3 w-3" strokeWidth={2} />

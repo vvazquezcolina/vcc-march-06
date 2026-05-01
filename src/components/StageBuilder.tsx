@@ -36,6 +36,7 @@ import {
   X,
   Users,
   Mic2,
+  Menu,
   type LucideIcon,
 } from 'lucide-react'
 import { useFestivalStore } from '@/store/festival-store'
@@ -44,6 +45,7 @@ import { STAGE_PRESETS } from '@/lib/stage-presets'
 import { StageErrorBoundary } from './StageErrorBoundary'
 import { Crowd } from './Crowd'
 import { AudioControls } from './AudioControls'
+import { OnboardingTour } from './OnboardingTour'
 import { audioEngine } from '@/lib/audio-engine'
 import {
   listSavedDesigns,
@@ -1107,6 +1109,8 @@ function SliderRow({
         max={max}
         step={step}
         onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={label}
+        aria-valuetext={display}
         className="w-full h-1.5 appearance-none rounded-full bg-white/[0.08] cursor-pointer
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:h-3
@@ -1146,6 +1150,9 @@ export default function StageBuilder() {
 
   // Crowd density. 0 means no crowd; default 250 = a healthy festival crowd.
   const [crowdDensity, setCrowdDensity] = useState<number>(CROWD_DEFAULT)
+
+  // Mobile toolbar drawer — hidden by default below lg, slides in on demand
+  const [toolbarOpen, setToolbarOpen] = useState(false)
 
   // Save/Load designs + share-link state. Lazy useState initializer reads
   // localStorage once on first render — avoids a set-state-in-effect cascade.
@@ -1238,8 +1245,44 @@ export default function StageBuilder() {
 
   return (
     <div className="relative w-full h-full min-h-[550px] flex rounded-xl overflow-hidden">
+      {/* ── Mobile hamburger (lg-) ── */}
+      <button
+        onClick={() => setToolbarOpen(true)}
+        aria-label="Open toolbar"
+        className="lg:hidden absolute top-3 left-3 z-30 flex h-9 w-9 items-center justify-center rounded-md bg-black/55 backdrop-blur border border-white/15 text-white/80 hover:bg-black/75 transition-colors"
+      >
+        <Menu className="h-4 w-4" strokeWidth={1.75} />
+      </button>
+
+      {/* ── Mobile backdrop ── */}
+      {toolbarOpen && (
+        <div
+          onClick={() => setToolbarOpen(false)}
+          className="lg:hidden absolute inset-0 z-30 bg-black/60 backdrop-blur-sm"
+          aria-hidden="true"
+        />
+      )}
+
       {/* ── Toolbar ── */}
-      <div className="w-60 shrink-0 bg-gradient-to-b from-[#12101f] to-[#0a0812] border-r border-white/[0.06] flex flex-col p-3 gap-1.5 overflow-y-auto z-10">
+      <div
+        className={`
+          absolute lg:relative inset-y-0 left-0 z-40 lg:z-10
+          w-72 lg:w-60 shrink-0
+          bg-gradient-to-b from-[#12101f] to-[#0a0812]
+          border-r border-white/[0.06]
+          flex flex-col p-3 gap-1.5 overflow-y-auto
+          transition-transform duration-300
+          ${toolbarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        {/* Mobile close — only visible below lg */}
+        <button
+          onClick={() => setToolbarOpen(false)}
+          aria-label="Close toolbar"
+          className="lg:hidden absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
+        >
+          <X className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
         {/* ── Stage presets ── */}
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">
@@ -1248,6 +1291,8 @@ export default function StageBuilder() {
           <button
             onClick={() => setShowStats((s) => !s)}
             title="Toggle FPS / draw-call overlay"
+            aria-label="Toggle performance stats overlay"
+            aria-pressed={showStats}
             className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-mono tracking-wider transition-colors ${
               showStats
                 ? 'bg-emerald-500/20 text-emerald-300'
@@ -1342,6 +1387,8 @@ export default function StageBuilder() {
               <button
                 key={mode}
                 onClick={() => setSceneMode(mode)}
+                aria-label={`${label} lighting mode`}
+                aria-pressed={isActive}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-white/[0.12] border-white/30 text-white'
@@ -1432,6 +1479,8 @@ export default function StageBuilder() {
                     key={mode}
                     onClick={() => setTransformMode(mode)}
                     title={label}
+                    aria-label={`${label} mode`}
+                    aria-pressed={isActive}
                     className={`flex flex-col items-center gap-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors cursor-pointer ${
                       isActive
                         ? 'bg-white/[0.12] border-white/30 text-white'
@@ -1486,6 +1535,7 @@ export default function StageBuilder() {
             onClick={handleSaveDesign}
             disabled={stageElements.length === 0}
             title="Save current stage layout"
+            aria-label="Save current stage layout"
             className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md bg-white/[0.08] hover:bg-white/[0.14] border border-white/[0.06] hover:border-white/15 text-white/70 hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Save className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -1509,6 +1559,7 @@ export default function StageBuilder() {
                 <button
                   onClick={() => handleDeleteDesign(d.id)}
                   title="Delete saved design"
+                  aria-label={`Delete saved design: ${d.name}`}
                   className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/30 hover:text-red-300 hover:bg-red-500/15 transition-colors cursor-pointer"
                 >
                   <X className="h-3 w-3" strokeWidth={2} />
@@ -1607,6 +1658,7 @@ export default function StageBuilder() {
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-gray-600 pointer-events-none select-none">
           Click element · Drag gizmo to {transformMode} · Scroll to zoom · Use Camera presets for shots
         </div>
+        <OnboardingTour />
       </div>
     </div>
   )
