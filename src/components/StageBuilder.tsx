@@ -6,6 +6,7 @@ import {
   OrbitControls,
   Text,
   Stars,
+  Sky,
   MeshReflectorMaterial,
   TransformControls,
 } from '@react-three/drei'
@@ -22,6 +23,8 @@ import {
   Maximize2,
   Trash2,
   Camera,
+  Sun,
+  Building2,
   type LucideIcon,
 } from 'lucide-react'
 import { useFestivalStore } from '@/store/festival-store'
@@ -31,6 +34,21 @@ import type { StageElement } from '@/types/festival'
 // Each element has: a Lucide icon for the toolbar, a label, a description,
 // and the bounding-box dimensions used to draw the selection wireframe.
 type TransformMode = 'translate' | 'rotate' | 'scale'
+type SceneMode = 'indoor' | 'outdoor'
+
+// Light-control defaults & ranges (kept here so the UI sliders and the
+// rendering code agree on the same numbers without indirection).
+const LIGHT_DEFAULTS = {
+  indoorBrightness: 1.4, // multiplier on ambient + key
+  sunIntensity: 2.5,
+  sunElevation: 50, // degrees above horizon, 0..90
+} as const
+
+const LIGHT_RANGES = {
+  indoorBrightness: { min: 0.3, max: 3.0, step: 0.05 },
+  sunIntensity: { min: 0.2, max: 5.0, step: 0.1 },
+  sunElevation: { min: 5, max: 88, step: 1 },
+} as const
 
 interface ElementMeta {
   type: StageElement['type']
@@ -562,34 +580,116 @@ function LineupText() {
 }
 
 // ─── STAGE LIGHTING ────────────────────────────────────────────────────────
-function StageLighting() {
-  const ref = useRef<THREE.Group>(null)
+// Two modes:
+//  - indoor:  bright ambient + white front key + the existing animated
+//             colored washes (full intensity). Concert/arena look. Brightness
+//             slider scales ambient + key + colored washes uniformly.
+//  - outdoor: drei <Sky> dome + directional sun (intensity & elevation
+//             controllable). Colored washes stay but at 35% intensity so the
+//             sun reads as the dominant light source.
+function StageLighting({
+  mode,
+  indoorBrightness,
+  sunIntensity,
+  sunElevation,
+}: {
+  mode: SceneMode
+  indoorBrightness: number
+  sunIntensity: number
+  sunElevation: number
+}) {
+  const animatedRef = useRef<THREE.Group>(null)
+  // The colored washes flicker; keep them animated in both modes but scale
+  // their base intensity by the active mode multiplier.
+  const washMultiplier = mode === 'outdoor' ? 0.35 : indoorBrightness
+
   useFrame(({ clock }) => {
-    if (ref.current) {
+    if (animatedRef.current) {
       const t = clock.getElapsedTime()
-      ref.current.children.forEach((light, i) => {
+      animatedRef.current.children.forEach((light, i) => {
         if (light instanceof THREE.SpotLight) {
-          light.intensity = 15 + Math.sin(t * 2 + i * 1.5) * 8
+          light.intensity =
+            (15 + Math.sin(t * 2 + i * 1.5) * 8) * washMultiplier
         }
       })
     }
   })
+
+  // Sun position from elevation. Sun sits along +Z (front of stage) so its
+  // light hits the stage face — feels like a stage facing the audience under
+  // afternoon sun. azimuth fixed at 0 to keep the slider count low.
+  const elevationRad = (sunElevation * Math.PI) / 180
+  const sunDistance = 60
+  const sunPos: [number, number, number] = [
+    0,
+    Math.sin(elevationRad) * sunDistance,
+    Math.cos(elevationRad) * sunDistance,
+  ]
+
+  if (mode === 'outdoor') {
+    return (
+      <>
+        <Sky
+          sunPosition={sunPos}
+          turbidity={6}
+          rayleigh={2}
+          mieCoefficient={0.005}
+          mieDirectionalG={0.8}
+        />
+        {/* Sun fill — softens shadows, adds warm ambient */}
+        <ambientLight intensity={0.4 * sunIntensity} color="#fff4d6" />
+        {/* The sun itself */}
+        <directionalLight
+          position={sunPos}
+          intensity={sunIntensity}
+          color="#fffaf0"
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+        />
+        {/* Sky bounce light from above */}
+        <hemisphereLight
+          args={['#bcd9ff', '#1a1418', 0.5 * sunIntensity]}
+        />
+        {/* Animated colored washes (reduced — sun dominates) */}
+        <group ref={animatedRef}>
+          <spotLight position={[-8, 10, 3]} angle={0.6} penumbra={0.9} intensity={18} color="#ff0066" />
+          <spotLight position={[8, 10, 3]} angle={0.6} penumbra={0.9} intensity={18} color="#0066ff" />
+          <spotLight position={[-4, 12, -3]} angle={0.5} penumbra={0.7} intensity={15} color="#7c3aed" />
+          <spotLight position={[4, 12, -3]} angle={0.5} penumbra={0.7} intensity={15} color="#ec4899" />
+          <spotLight position={[0, 10, -5]} angle={0.7} penumbra={0.5} intensity={12} color="#aa00ff" />
+        </group>
+      </>
+    )
+  }
+
+  // Indoor — concert / arena look
   return (
     <>
-      <ambientLight intensity={0.08} color="#1a1030" />
-      <spotLight position={[0, 12, 8]} angle={0.5} penumbra={0.8} intensity={20} color="#ffffff" castShadow />
-      <group ref={ref}>
+      {/* Bright ambient so detail doesn't get lost in shadow */}
+      <ambientLight intensity={0.35 * indoorBrightness} color="#3a2a55" />
+      {/* White front key wash */}
+      <spotLight
+        position={[0, 12, 8]}
+        angle={0.5}
+        penumbra={0.8}
+        intensity={20 * indoorBrightness}
+        color="#ffffff"
+        castShadow
+      />
+      {/* Animated colored washes */}
+      <group ref={animatedRef}>
         <spotLight position={[-8, 10, 3]} angle={0.6} penumbra={0.9} intensity={18} color="#ff0066" />
         <spotLight position={[8, 10, 3]} angle={0.6} penumbra={0.9} intensity={18} color="#0066ff" />
         <spotLight position={[-4, 12, -3]} angle={0.5} penumbra={0.7} intensity={15} color="#7c3aed" />
         <spotLight position={[4, 12, -3]} angle={0.5} penumbra={0.7} intensity={15} color="#ec4899" />
         <spotLight position={[0, 10, -5]} angle={0.7} penumbra={0.5} intensity={12} color="#aa00ff" />
       </group>
-      <pointLight position={[-5, 0.3, 3]} intensity={4} color="#ff0066" distance={8} />
-      <pointLight position={[5, 0.3, 3]} intensity={4} color="#0044ff" distance={8} />
-      <pointLight position={[0, 0.3, 4]} intensity={5} color="#ff00ff" distance={6} />
-      <pointLight position={[-3, 0.3, -3]} intensity={3} color="#7c3aed" distance={6} />
-      <pointLight position={[3, 0.3, -3]} intensity={3} color="#00ccff" distance={6} />
+      {/* Floor up-lights — keep original concert mood */}
+      <pointLight position={[-5, 0.3, 3]} intensity={4 * indoorBrightness} color="#ff0066" distance={8} />
+      <pointLight position={[5, 0.3, 3]} intensity={4 * indoorBrightness} color="#0044ff" distance={8} />
+      <pointLight position={[0, 0.3, 4]} intensity={5 * indoorBrightness} color="#ff00ff" distance={6} />
+      <pointLight position={[-3, 0.3, -3]} intensity={3 * indoorBrightness} color="#7c3aed" distance={6} />
+      <pointLight position={[3, 0.3, -3]} intensity={3 * indoorBrightness} color="#00ccff" distance={6} />
     </>
   )
 }
@@ -621,11 +721,19 @@ function SceneContents({
   selectedId,
   onSelect,
   transformMode,
+  sceneMode,
+  indoorBrightness,
+  sunIntensity,
+  sunElevation,
   screenshotRef,
 }: {
   selectedId: string | null
   onSelect: (id: string | null) => void
   transformMode: TransformMode
+  sceneMode: SceneMode
+  indoorBrightness: number
+  sunIntensity: number
+  sunElevation: number
   screenshotRef: React.MutableRefObject<(() => void) | null>
 }) {
   const stageElements = useFestivalStore((s) => s.stageElements)
@@ -640,9 +748,25 @@ function SceneContents({
         maxDistance={30}
         target={[0, 3, 0]}
       />
-      <Stars radius={100} depth={60} count={5000} factor={6} saturation={0.3} fade speed={1} />
-      <fog attach="fog" args={['#0a0015', 25, 60]} />
-      <StageLighting />
+      {/* Stars are concert-mood — only indoors. Outside the sky dome takes over. */}
+      {sceneMode === 'indoor' && (
+        <Stars radius={100} depth={60} count={5000} factor={6} saturation={0.3} fade speed={1} />
+      )}
+      {/* Lighter, less saturated fog outdoors so daylight reads clean. */}
+      <fog
+        attach="fog"
+        args={
+          sceneMode === 'outdoor'
+            ? ['#bcd0e3', 40, 90]
+            : ['#0a0015', 25, 60]
+        }
+      />
+      <StageLighting
+        mode={sceneMode}
+        indoorBrightness={indoorBrightness}
+        sunIntensity={sunIntensity}
+        sunElevation={sunElevation}
+      />
       <Mainstage />
       <LineupText />
 
@@ -737,10 +861,74 @@ function DraggableElement({
   )
 }
 
+// ─── SLIDER ROW (small labeled range input for the toolbar) ───────────────
+function SliderRow({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  display: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="mb-2">
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-white/45">
+          {label}
+        </span>
+        <span className="text-[10px] font-mono text-white/55 tabular-nums">
+          {display}
+        </span>
+      </div>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-1.5 appearance-none rounded-full bg-white/[0.08] cursor-pointer
+          [&::-webkit-slider-thumb]:appearance-none
+          [&::-webkit-slider-thumb]:h-3
+          [&::-webkit-slider-thumb]:w-3
+          [&::-webkit-slider-thumb]:rounded-full
+          [&::-webkit-slider-thumb]:bg-white
+          [&::-webkit-slider-thumb]:shadow-md
+          [&::-webkit-slider-thumb]:shadow-white/30
+          [&::-webkit-slider-thumb]:cursor-grab
+          [&::-webkit-slider-thumb]:active:cursor-grabbing
+          [&::-moz-range-thumb]:h-3
+          [&::-moz-range-thumb]:w-3
+          [&::-moz-range-thumb]:rounded-full
+          [&::-moz-range-thumb]:bg-white
+          [&::-moz-range-thumb]:border-0"
+      />
+    </div>
+  )
+}
+
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────
 export default function StageBuilder() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [transformMode, setTransformMode] = useState<TransformMode>('translate')
+
+  // Lighting controls — local state, applied live to the scene. Explicit
+  // <number> annotation; otherwise the LIGHT_DEFAULTS `as const` literals
+  // narrow the state type and break the slider onChange signature.
+  const [sceneMode, setSceneMode] = useState<SceneMode>('indoor')
+  const [indoorBrightness, setIndoorBrightness] = useState<number>(LIGHT_DEFAULTS.indoorBrightness)
+  const [sunIntensity, setSunIntensity] = useState<number>(LIGHT_DEFAULTS.sunIntensity)
+  const [sunElevation, setSunElevation] = useState<number>(LIGHT_DEFAULTS.sunElevation)
+
   const screenshotRef = useRef<(() => void) | null>(null)
 
   const addStageElement = useFestivalStore((s) => s.addStageElement)
@@ -799,6 +987,71 @@ export default function StageBuilder() {
             </div>
           </button>
         ))}
+
+        <div className="border-t border-white/[0.06] my-2" />
+
+        {/* ── Lighting ── */}
+        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
+          Lighting
+        </h2>
+
+        <div className="grid grid-cols-2 gap-1.5 mb-2">
+          {(
+            [
+              { mode: 'indoor' as const, Icon: Building2, label: 'Indoor' },
+              { mode: 'outdoor' as const, Icon: Sun, label: 'Outdoor' },
+            ] as const
+          ).map(({ mode, Icon, label }) => {
+            const isActive = sceneMode === mode
+            return (
+              <button
+                key={mode}
+                onClick={() => setSceneMode(mode)}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-white/[0.12] border-white/30 text-white'
+                    : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:text-white/80 hover:border-white/15'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        {sceneMode === 'indoor' ? (
+          <SliderRow
+            label="Brightness"
+            value={indoorBrightness}
+            min={LIGHT_RANGES.indoorBrightness.min}
+            max={LIGHT_RANGES.indoorBrightness.max}
+            step={LIGHT_RANGES.indoorBrightness.step}
+            display={indoorBrightness.toFixed(2) + '×'}
+            onChange={setIndoorBrightness}
+          />
+        ) : (
+          <>
+            <SliderRow
+              label="Sun intensity"
+              value={sunIntensity}
+              min={LIGHT_RANGES.sunIntensity.min}
+              max={LIGHT_RANGES.sunIntensity.max}
+              step={LIGHT_RANGES.sunIntensity.step}
+              display={sunIntensity.toFixed(1) + '×'}
+              onChange={setSunIntensity}
+            />
+            <SliderRow
+              label="Sun height"
+              value={sunElevation}
+              min={LIGHT_RANGES.sunElevation.min}
+              max={LIGHT_RANGES.sunElevation.max}
+              step={LIGHT_RANGES.sunElevation.step}
+              display={Math.round(sunElevation) + '°'}
+              onChange={setSunElevation}
+            />
+          </>
+        )}
 
         <div className="border-t border-white/[0.06] my-2" />
 
@@ -905,6 +1158,10 @@ export default function StageBuilder() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             transformMode={transformMode}
+            sceneMode={sceneMode}
+            indoorBrightness={indoorBrightness}
+            sunIntensity={sunIntensity}
+            sunElevation={sunElevation}
             screenshotRef={screenshotRef}
           />
         </Canvas>
