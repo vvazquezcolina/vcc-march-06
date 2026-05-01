@@ -42,6 +42,7 @@ import { useFestivalStore } from '@/store/festival-store'
 import type { StageElement } from '@/types/festival'
 import { STAGE_PRESETS } from '@/lib/stage-presets'
 import { StageErrorBoundary } from './StageErrorBoundary'
+import { Crowd } from './Crowd'
 import {
   listSavedDesigns,
   saveDesign,
@@ -70,6 +71,9 @@ const LIGHT_RANGES = {
   sunIntensity: { min: 0.2, max: 5.0, step: 0.1 },
   sunElevation: { min: 5, max: 88, step: 1 },
 } as const
+
+const CROWD_DEFAULT = 250
+const CROWD_RANGE = { min: 0, max: 600, step: 10 }
 
 // ─── CAMERA PRESETS ────────────────────────────────────────────────────────
 // Each preset names a "shot" — a camera position + look-at target. Click to
@@ -862,6 +866,7 @@ function SceneContents({
   sunIntensity,
   sunElevation,
   showStats,
+  crowdDensity,
   captureRef,
   downloadRef,
   cameraTriggerRef,
@@ -874,6 +879,7 @@ function SceneContents({
   sunIntensity: number
   sunElevation: number
   showStats: boolean
+  crowdDensity: number
   captureRef: React.MutableRefObject<(() => void) | null>
   downloadRef: React.MutableRefObject<(() => void) | null>
   cameraTriggerRef: React.MutableRefObject<((preset: CameraPreset) => void) | null>
@@ -958,6 +964,7 @@ function SceneContents({
         sunElevation={sunElevation}
       />
       <Mainstage />
+      <Crowd density={crowdDensity} />
       <LineupText />
 
       {stageElements.map((el) => (
@@ -1123,6 +1130,9 @@ export default function StageBuilder() {
   // Stats overlay (FPS / draw calls / mem) — off by default to keep the
   // canvas clean on first impression.
   const [showStats, setShowStats] = useState(false)
+
+  // Crowd density. 0 means no crowd; default 250 = a healthy festival crowd.
+  const [crowdDensity, setCrowdDensity] = useState<number>(CROWD_DEFAULT)
 
   // Save/Load designs + share-link state. Lazy useState initializer reads
   // localStorage once on first render — avoids a set-state-in-effect cascade.
@@ -1365,6 +1375,16 @@ export default function StageBuilder() {
           </>
         )}
 
+        <SliderRow
+          label="Crowd"
+          value={crowdDensity}
+          min={CROWD_RANGE.min}
+          max={CROWD_RANGE.max}
+          step={CROWD_RANGE.step}
+          display={crowdDensity === 0 ? 'off' : `${crowdDensity}`}
+          onChange={setCrowdDensity}
+        />
+
         <div className="border-t border-white/[0.06] my-2" />
 
         {selectedElement && selectedMeta && (
@@ -1560,6 +1580,7 @@ export default function StageBuilder() {
               sunIntensity={sunIntensity}
               sunElevation={sunElevation}
               showStats={showStats}
+              crowdDensity={crowdDensity}
               captureRef={captureRef}
               downloadRef={downloadRef}
               cameraTriggerRef={cameraTriggerRef}
